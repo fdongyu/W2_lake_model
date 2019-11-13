@@ -78,32 +78,52 @@ class W2_Contour(object):
         self.Z_flow = []
         self.U = []
         self.W = []
-        self.tracer = []
+        T = []
+        RHO = []
+        TDS = []
+        tracer = []
         for i in range(len(self.backflow_sections)):
             section = self.backflow_sections[i]
             xtem = [float(l[0]) for l in section]
             ztem = [float(p[1]) for p in section]
             utem = [float(r[2]) for r in section]
             wtem = [float(q[3]) for q in section]
-            ttem = [float(t[7]) for t in section]
+            Ttem = [float(t[4]) for t in section]
+            rhotem = [float(rho[5]) for rho in section]
+            tdstem = [float(tds[6]) for tds in section]
+            trtem = [float(tr[7]) for tr in section]
             self.X_flow.append(xtem)
             self.Z_flow.append(ztem)
             self.U.append(utem)
             self.W.append(wtem)
-            self.tracer.append(ttem)
+            T.append(Ttem)
+            RHO.append(rhotem)
+            TDS.append(tdstem)
+            tracer.append(trtem)
         
-        #pdb.set_trace() 
         
-    def VisContour(self, timestep=-1, Plotuv=False, PlotGrid=False):
+        ## create python dictionary for water quality variables
+        self.var_output = {}
+        self.var_output.update({'TDS':{'value': TDS,'limits':[140,200], 'long_name': 'Total dissolved solids'}})
+        self.var_output.update({'Tracer':{'value': tracer,'limits':[0,1], 'long_name': 'Conservative tracer'}})
         
+        #pdb.set_trace()
+        
+        
+    def VisContour(self, varname='Tracer', timestep=-1, Plotuv=False, PlotGrid=False):
+        """
+        Create the contour plot of a variable given the variable name
+        variable names are provided in cpl.opt
+        e.g. 'U', 'W', 'Tracer'
+        The python dictionary for variables can be found in vardict.py
+        """
         self.Readcpl()
-                
         
+                
         X_flow = self.X_flow[timestep]
         Z_flow = self.Z_flow[timestep]
         
         plt.rcParams.update({'font.size': 18})
-        #fig = plt.figure(figsize=(11.5,10))
         fig = plt.figure(figsize=(11.5,8))
         ax = fig.add_subplot(111)
         
@@ -117,19 +137,17 @@ class W2_Contour(object):
                               scale=scale)
             qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
         
-        #from scipy.interpolate import griddata
-        tracer = self.tracer[timestep]
         
-        tracer = np.asarray(tracer)
+        var = self.var_output[varname]['value'][timestep]
+        var = np.asarray(var)
         #tracer[tracer==self.mask_value] = np.nan
-        tracer = np.ma.masked_array(tracer,mask=tracer==self.mask_value)
-        #pdb.set_trace()
+        var = np.ma.masked_array(var,mask=var==self.mask_value)
         #xgrid, zgrid = np.meshgrid(X_flow, Z_flow)
         #Tgrid = griddata((X_flow, Z_flow), T, (xgrid, zgrid))
         #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
-        levels = np.linspace(0, 1, 100)
+        levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
         
-        cs = ax.tricontourf(X_flow, Z_flow, tracer, cmap=plt.cm.bone, levels=levels)
+        cs = ax.tricontourf(X_flow, Z_flow, var, cmap=plt.cm.bone, levels=levels)
             
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(ax)
@@ -137,7 +155,7 @@ class W2_Contour(object):
         cb = fig.colorbar(cs, cax=cax, orientation='vertical')
         cb.ax.tick_params(labelsize=18)
         cb.ax.yaxis.offsetText.set_fontsize(14)
-        cb.set_label('Tracer', fontsize=18)
+        cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=18)
             
         if PlotGrid == True:
             from bathymetry import W2_Bathymetry
@@ -156,10 +174,10 @@ class W2_Contour(object):
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
         ax.xaxis.grid(True)
-        plt.savefig('tracer_%s.png'%str(timestep))
+        plt.savefig('%s_%s.png'%(varname,str(timestep)))
         #plt.savefig('example.png')
         plt.close()
-        #plt.show()
+
         
         
         
@@ -174,6 +192,7 @@ class W2_Contour(object):
 #### For testing ####       
         
 if __name__ == "__main__":
-    wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
+    #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\20191113_tracer_test'
     WC = W2_Contour(wdir)
-    WC.VisContour(700)
+    WC.VisContour('Tracer', 10)
