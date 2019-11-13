@@ -286,8 +286,9 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Examples\Particle tracking_DF'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191106_baseline'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191108_baseline2'
-    wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3'
+    #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3'
+    wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
     WPT = W2_Particle_Tracking(wdir)
-    WPT.VisParticles(310)
+    WPT.VisParticles(30)
     
     
