@@ -60,7 +60,17 @@ class W2_Segmentation(object):
         
         self.readBathymetry()
         
+        ## Step One: plot the segment link
         segs, Pnts, segs2, Pnts2, segs3, Pnts3, segs4, Pnts4, segs5, Pnts5 = self.Seg2Pnt()
+        ## Note the length of the segs = length of Pnts + 1. and the segment is not points, it is the line between two points
+        
+        ## Step Two: each segment
+        eastPnts, westPnts = self.SegLyr(Pnts, branchID=1)
+        eastPnts2, westPnts2 = self.SegLyr(Pnts2, branchID=2)
+        eastPnts3, westPnts3 = self.SegLyr(Pnts3, branchID=3)
+        eastPnts4, westPnts4 = self.SegLyr(Pnts4, branchID=4)
+        eastPnts5, westPnts5 = self.SegLyr(Pnts5, branchID=5)
+        
         
         fig = plt.figure(figsize=(12,12))
         ax = fig.add_subplot(111)
@@ -70,6 +80,17 @@ class W2_Segmentation(object):
         ax.plot(Pnts3[:,0], Pnts3[:,1], '.-b')
         ax.plot(Pnts4[:,0], Pnts4[:,1], '.-b')
         ax.plot(Pnts5[:,0], Pnts5[:,1], '.-b')
+        
+        for i in range(len(westPnts)):
+            ax.plot([westPnts[i,0], eastPnts[i,0]], [westPnts[i,1], eastPnts[i,1]], '-k')
+        for i in range(len(westPnts2)):
+            ax.plot([westPnts2[i,0], eastPnts2[i,0]], [westPnts2[i,1], eastPnts2[i,1]], '-k')
+        for i in range(len(westPnts3)):
+            ax.plot([westPnts3[i,0], eastPnts3[i,0]], [westPnts3[i,1], eastPnts3[i,1]], '-k')
+        for i in range(len(westPnts4)):
+            ax.plot([westPnts4[i,0], eastPnts4[i,0]], [westPnts4[i,1], eastPnts4[i,1]], '-k')
+        for i in range(len(westPnts5)):
+            ax.plot([westPnts5[i,0], eastPnts5[i,0]], [westPnts5[i,1], eastPnts5[i,1]], '-k')
         
         for i in range(len(segs)):
             ax.annotate('%s'%str(segs[i]), (Pnts[i,0], Pnts[i,1]), color='r', fontsize=10)
@@ -84,7 +105,10 @@ class W2_Segmentation(object):
         
         ax.set_xlim([-20000,10000])
         ax.set_aspect(True)
-        plt.show()
+        #plt.show()
+        plt.savefig('segmentations.png')
+        plt.close()
+        
         
         #pdb.set_trace()
     
@@ -105,7 +129,7 @@ class W2_Segmentation(object):
             Ptem = [Pnts1[i][0]-seg_length[i]*np.sin(seg_ori[i]), Pnts1[i][1]-seg_length[i]*np.cos(seg_ori[i])]
             Pnts1.append(Ptem)
         
-        pdb.set_trace()
+        
         segs2, Pnts2 = self.Seg2Pnt_branch(Pnts1, branchID=2)
         
         segs3, Pnts3 = self.Seg2Pnt_branch(Pnts1, branchID=3)
@@ -125,6 +149,13 @@ class W2_Segmentation(object):
         
         segs1, seg_length1, seg_ori1, lyrs1 = self.SegInfo(1)
         
+        midPnts1 = []
+        Pnts1 = np.asarray(Pnts1)
+        for i in range(len(Pnts1)-1):
+            tem = (Pnts1[i]+Pnts1[i+1])/2.
+            midPnts1.append(tem.tolist())       
+        midPnts1 = np.asarray(midPnts1)
+        
         segs, seg_length, seg_ori, lyrs = self.SegInfo(branchID)
         ## delete boundary cells first
         segs = segs[1:-1]
@@ -135,8 +166,9 @@ class W2_Segmentation(object):
         if branchID == 2:
             DHS=33
             ## startting segment coordination
-            ssc = Pnts1[DHS-1]
-            Pnts = [ [ ssc[0]+lyrs1[DHS-1]*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]+lyrs1[DHS-1]*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
+            #ssc = Pnts1[DHS-1]
+            ssc = midPnts1[DHS-1]
+            Pnts = [ [ ssc[0]+lyrs1[DHS-1]/2.*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]+lyrs1[DHS-1]/2.*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
 #            ns = len(segs)  
 #            for i in range(len(segs)):
 #                Ptem = [Pnts[i][0]+seg_length[ns-1-i]*np.sin(seg_ori[ns-1-i]), Pnts[i][1]+seg_length[ns-1-i]*np.cos(seg_ori[ns-1-i])]
@@ -144,24 +176,27 @@ class W2_Segmentation(object):
             
         elif branchID == 3:
             DHS=34
-            ssc = Pnts1[DHS-1]
-            Pnts = [ [ ssc[0]-lyrs1[DHS-1]*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]-lyrs1[DHS-1]*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
+            #ssc = Pnts1[DHS-1]
+            ssc = midPnts1[DHS-1]
+            Pnts = [ [ ssc[0]-lyrs1[DHS-1]/2.*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]-lyrs1[DHS-1]/2.*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
 #            ns = len(segs)
 #            for i in range(len(segs)):
 #                Ptem = [Pnts[i][0]+seg_length[ns-1-i]*np.sin(seg_ori[ns-1-i]), Pnts[i][1]+seg_length[ns-1-i]*np.cos(seg_ori[ns-1-i])]
 #                Pnts.append(Ptem)
         elif branchID == 4:
             DHS=42
-            ssc = Pnts1[DHS-1]
-            Pnts = [ [ ssc[0]+lyrs1[DHS-1]*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]+lyrs1[DHS-1]*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
+            #ssc = Pnts1[DHS-1]
+            ssc = midPnts1[DHS-1]
+            Pnts = [ [ ssc[0]+lyrs1[DHS-1]/2.*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]+lyrs1[DHS-1]/2.*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
 #            ns = len(segs)
 #            for i in range(len(segs)):
 #                Ptem = [Pnts[i][0]+seg_length[ns-1-i]*np.sin(seg_ori[ns-1-i]), Pnts[i][1]+seg_length[ns-1-i]*np.cos(seg_ori[ns-1-i])]
 #                Pnts.append(Ptem)
         elif branchID == 5:
             DHS=43
-            ssc = Pnts1[DHS-1]
-            Pnts = [ [ ssc[0]-lyrs1[DHS-1]*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]-lyrs1[DHS-1]*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
+            #ssc = Pnts1[DHS-1]
+            ssc = midPnts1[DHS-1]
+            Pnts = [ [ ssc[0]-lyrs1[DHS-1]/2.*np.cos(np.pi*2-seg_ori1[DHS-1]), ssc[1]-lyrs1[DHS-1]/2.*np.sin(np.pi*2-seg_ori1[DHS-1]) ] ]
 #            ns = len(segs)
 #            for i in range(len(segs)):
 #                Ptem = [Pnts[i][0]+seg_length[ns-1-i]*np.sin(seg_ori[ns-1-i]), Pnts[i][1]+seg_length[ns-1-i]*np.cos(seg_ori[ns-1-i])]
@@ -192,6 +227,39 @@ class W2_Segmentation(object):
 #            seg_ori_degree.append(np.degrees(ori))
         
         return segs, seg_length, seg_ori, lyrs[:,1]
+    
+    def SegLyr(self, Pnts, branchID=1):
+        """
+        Input a list of Points of the specified branch
+        Ouput a list of Points for each segments
+        """
+        segs, seg_length, seg_ori, lyrs = self.SegInfo(branchID)
+        ## delete boundary cells first
+        segs = segs[1:-1]
+        seg_length = seg_length[1:-1]
+        seg_ori = seg_ori[1:-1]
+        lyrs = lyrs[1:-1]
+        
+        if branchID in [2,3,4,5]:
+            Pnts = Pnts[::-1]
+        
+        ## calculate the mid point at the center of a segment
+        midPnts = []
+        for i in range(len(Pnts)-1):
+            tem = (Pnts[i]+Pnts[i+1])/2.
+            midPnts.append(tem.tolist())
+        
+        midPnts = np.asarray(midPnts)
+        eastPnts = np.zeros_like(midPnts)
+        westPnts = np.zeros_like(midPnts)
+        for i in range(len(midPnts)):
+            eastPnts[i,0] = midPnts[i,0] + lyrs[i]/2.*np.cos(np.pi*2-seg_ori[i])
+            eastPnts[i,1] = midPnts[i,1] + lyrs[i]/2.*np.sin(np.pi*2-seg_ori[i])
+            westPnts[i,0] = midPnts[i,0] - lyrs[i]/2.*np.cos(np.pi*2-seg_ori[i])
+            westPnts[i,1] = midPnts[i,1] - lyrs[i]/2.*np.sin(np.pi*2-seg_ori[i])
+        
+            #pdb.set_trace()
+        return eastPnts, westPnts
     
     
 #### For testing ####       
