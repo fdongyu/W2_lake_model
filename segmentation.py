@@ -111,6 +111,53 @@ class W2_Segmentation(object):
         
         
         #pdb.set_trace()
+        
+    def VisSeg2(self):
+        
+        ## Step One: plot the segment link
+        self.segs1,  self.Pnts1,  self.segs2,  self.Pnts2,  self.segs3,  self.Pnts3,  self.segs4,  self.Pnts4,  self.segs5,  self.Pnts5 = self.Seg2Pnt()
+        ## Note the length of the segs = length of Pnts + 1. and the segment is not points, it is the line between two points
+        
+        ## Step Two: each segment
+        self.eastPnts1, self.westPnts1 = self.SegLyr(self.Pnts1, branchID=1)
+        self.eastPnts2, self.westPnts2 = self.SegLyr(self.Pnts2, branchID=2)
+        self.eastPnts3, self.westPnts3 = self.SegLyr(self.Pnts3, branchID=3)
+        self.eastPnts4, self.westPnts4 = self.SegLyr(self.Pnts4, branchID=4)
+        self.eastPnts5, self.westPnts5 = self.SegLyr(self.Pnts5, branchID=5)
+        
+        
+    def BranchPnt(self, branchID=1):
+        """
+        visualize the alignment of segments
+        """
+        
+        self.readBathymetry()
+        
+        ## Step One: plot the segment link
+        segs1, Pnts1, segs2, Pnts2, segs3, Pnts3, segs4, Pnts4, segs5, Pnts5 = self.Seg2Pnt()
+        ## Note the length of the segs = length of Pnts + 1. and the segment is not points, it is the line between two points
+        
+        ## Step Two: each segment
+#        eastPnts1, westPnts2 = self.SegLyr(Pnts1, branchID=1)
+#        eastPnts2, westPnts2 = self.SegLyr(Pnts2, branchID=2)
+#        eastPnts3, westPnts3 = self.SegLyr(Pnts3, branchID=3)
+#        eastPnts4, westPnts4 = self.SegLyr(Pnts4, branchID=4)
+#        eastPnts5, westPnts5 = self.SegLyr(Pnts5, branchID=5)
+        
+        if branchID==1:
+            return segs1, Pnts1
+        elif branchID==2:
+            return segs2, Pnts2
+        elif branchID==3:
+            return segs3, Pnts3
+        elif branchID==4:
+            return segs4, Pnts4
+        elif branchID==5:
+            return segs5, Pnts5
+        
+        
+        
+        
     
     def Seg2Pnt(self):
         """
