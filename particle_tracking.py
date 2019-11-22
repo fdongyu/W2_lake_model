@@ -30,7 +30,7 @@ class W2_Particle_Tracking(object):
     """
     general class for reading and visualizing CE-QUAL-W2 modeled particle tracking
     """
-    
+    mask_value = -99
     
     def __init__(self, workdir, **kwargs):
         self.__dict__.update(kwargs)
@@ -198,20 +198,48 @@ class W2_Particle_Tracking(object):
         if PlotFlow == True:
             U = self.U[timestep]
             W = self.W[timestep]
+            
+            ## mask data
+            X_flow = np.asarray(X_flow)
+            Z_flow = np.asarray(Z_flow)
+            U = np.asarray(U)
+            W = np.asarray(W)
+            maskuv = np.logical_or(U != 0,W != 0)
+            
             scale = 1.
             scale = 100./scale
-            Q = ax.quiver(X_flow, Z_flow, np.asarray(U)*100., np.asarray(W)*100.,
+            Q = ax.quiver(X_flow[maskuv], Z_flow[maskuv], U[maskuv]*100., W[maskuv]*100.,
                                zorder=5, width=0.001, headwidth=4, headlength=4.5,
-                              scale=scale)
+                              scale=scale, color='b')
             qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
         
         if PlotTemp == True:
+            import matplotlib.tri as tri
             #from scipy.interpolate import griddata
             T = self.T[timestep]
-            #xgrid, zgrid = np.meshgrid(X_flow, Z_flow)
-            #Tgrid = griddata((X_flow, Z_flow), T, (xgrid, zgrid))
-            #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
-            cs = ax.tricontourf(X_flow, Z_flow, T, cmap=plt.cm.bone)
+            U = np.asarray(self.U[timestep])
+            W = np.asarray(self.W[timestep])
+            
+            ## mask data
+            X_flow = np.asarray(X_flow)
+            Z_flow = np.asarray(Z_flow)
+            T = np.asarray(T)
+            
+            triang = tri.Triangulation(X_flow, Z_flow)
+            isbad = np.less_equal(np.asarray(self.T[-1]), 0) 
+            #isbad = np.equal(U, 0) & np.equal(W, 0)
+            mask = np.any(np.where(isbad[triang.triangles], True, False), axis=1)
+            triang.set_mask(mask)
+            
+            
+            #T[T==0] = self.mask_value
+            #T = np.ma.masked_array(T,mask=T==self.mask_value)
+            
+            #T_limits = [0,35]
+            T_limits = [T.min(),T.max()]
+            levels = np.linspace(T_limits[0], T_limits[1], 100)
+            cs = ax.tricontourf(triang, T, cmap=plt.cm.bone, levels=levels)
+            #cs = ax.tricontourf(X_flow, Z_flow, T, cmap=plt.cm.bone, levels=levels)
             
             from mpl_toolkits.axes_grid1 import make_axes_locatable
             divider = make_axes_locatable(ax)
@@ -233,15 +261,16 @@ class W2_Particle_Tracking(object):
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
         ax.title.set_text('Time: %s'%timestr)
         #ax.set_xlim([4000, 12000])
-        ax.set_ylim([125, 155])
+        ax.set_ylim([135, 150])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
         ax.xaxis.grid(True)
-        plt.savefig('simple_particle_tracks_%s.png'%str(timestep))
-        #plt.savefig('example.png')
-        plt.close()
         #plt.show()
+        plt.savefig('particle_tracks_%s.png'%str(timestep))
+        #plt.savefig('example_%s.png'%str(timestep))
+        plt.close()
+        
     
         
     def VisParticles_full(self):
@@ -287,8 +316,11 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191106_baseline'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191108_baseline2'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3'
-    wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
+    #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1404_test0'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WPT = W2_Particle_Tracking(wdir)
-    WPT.VisParticles(30)
+    WPT.VisParticles(11, PlotGrid=False)
     
     

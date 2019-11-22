@@ -41,8 +41,8 @@ class W2_Contour(object):
         f.close()
         
         
-        ## Step 2: read the background flow at each time step
-        self.backflow_sections = []
+        ## Step 2: read the output variables at each time step
+        backflow_sections = []
         recording = False
         f = open(filename, 'r')
         for i in range(len(JDAYs)):
@@ -65,7 +65,7 @@ class W2_Contour(object):
                         break
             
             #if i == len(JDAYs)-1:
-            self.backflow_sections.append(new_section[1:-1])
+            backflow_sections.append(new_section[1:-1])
             #else:
             #    self.backflow_sections.append(new_section[1:-1])
         
@@ -82,8 +82,8 @@ class W2_Contour(object):
         RHO = []
         TDS = []
         tracer = []
-        for i in range(len(self.backflow_sections)):
-            section = self.backflow_sections[i]
+        for i in range(len(backflow_sections)):
+            section = backflow_sections[i]
             xtem = [float(l[0]) for l in section]
             ztem = [float(p[1]) for p in section]
             utem = [float(r[2]) for r in section]
@@ -106,6 +106,7 @@ class W2_Contour(object):
         self.var_output = {}
         self.var_output.update({'TDS':{'value': TDS,'limits':[140,200], 'long_name': 'Total dissolved solids'}})
         self.var_output.update({'Tracer':{'value': tracer,'limits':[0,1], 'long_name': 'Conservative tracer'}})
+        self.var_output.update({'T':{'value': T,'limits':[0,35], 'long_name': 'Water temperature (C)'}})
         
         #pdb.set_trace()
         
@@ -128,13 +129,23 @@ class W2_Contour(object):
         ax = fig.add_subplot(111)
         
         if Plotuv:
+            #pdb.set_trace()
+            X_flow = np.asarray(X_flow)
+            Z_flow = np.asarray(Z_flow)
+            
             U = self.U[timestep]
             W = self.W[timestep]
+            U = np.asarray(U)
+            W = np.asarray(W)
+            mask = np.logical_or(U != self.mask_value,W != self.mask_value)
+            #U = np.ma.masked_array(U,mask=U==self.mask_value)
+            #W = np.ma.masked_array(W,mask=W==self.mask_value)
+            
             scale = 1.
             scale = 100./scale
-            Q = ax.quiver(X_flow, Z_flow, np.asarray(U)*100., np.asarray(W)*100.,
+            Q = ax.quiver(X_flow[mask], Z_flow[mask], np.asarray(U[mask])*100., np.asarray(W[mask])*100.,
                               zorder=5, width=0.001, headwidth=4, headlength=4.5,
-                              scale=scale)
+                              scale=scale, color='r')
             qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
         
         
@@ -168,8 +179,8 @@ class W2_Contour(object):
             
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
         ax.title.set_text('Time: %s'%timestr)
-        #ax.set_xlim([4000, 12000])
-        ax.set_ylim([125, 155])
+        ax.set_xlim([0, 25000])
+        ax.set_ylim([135, 150])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
@@ -193,6 +204,8 @@ class W2_Contour(object):
         
 if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\20191113_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', 10)
+    #WC.VisContour('Tracer', -2, Plotuv=True)
+    WC.VisContour('T', -2, Plotuv=True)
