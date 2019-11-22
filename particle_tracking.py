@@ -257,15 +257,17 @@ class W2_Particle_Tracking(object):
             for sq in pat:
                 ax.add_patch(sq)
             ax.autoscale_view()
-            
+        
+          
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
         ax.title.set_text('Time: %s'%timestr)
         #ax.set_xlim([4000, 12000])
-        ax.set_ylim([135, 150])
+        #ax.set_ylim([135, 150])
+        ax.set_ylim([135, 160])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
-        ax.yaxis.grid(True)
-        ax.xaxis.grid(True)
+        #ax.yaxis.grid(True)
+        #ax.xaxis.grid(True)
         #plt.show()
         plt.savefig('particle_tracks_%s.png'%str(timestep))
         #plt.savefig('example_%s.png'%str(timestep))
@@ -321,6 +323,6 @@ if __name__ == "__main__":
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WPT = W2_Particle_Tracking(wdir)
-    WPT.VisParticles(11, PlotGrid=False)
+    WPT.VisParticles(11, PlotGrid=True)
     
     

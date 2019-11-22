@@ -46,7 +46,7 @@ class W2_Bathymetry(object):
             line = s.split()
             if recording is False:
                 if varname in line:
-                    print "Reading Segment %s ...\n"%varname
+                    #print "Reading Segment %s ...\n"%varname
                     recording = True
             elif recording is True:
                 output_section.append(line)
@@ -107,7 +107,7 @@ class W2_Bathymetry(object):
             line = s.split()
             if recording is False:
                 if 'Branch' in line and segID in line[3:]:
-                    print "Reading Segment %s ...\n"%segID
+                    #print "Reading Segment %s ...\n"%segID
                     recording = True
             elif recording is True:
                 output_section.append(line)
@@ -151,6 +151,8 @@ class W2_Bathymetry(object):
         
         X = [0] + X[:-1]
         Z = [0] + Z[:-1]
+        
+        Z = [156.68 - zz for zz in Z]  ## check W2ControlGUI
         ############################################
         
         
@@ -173,11 +175,12 @@ class W2_Bathymetry(object):
         #pc = coll.PatchCollection(pat, facecolor=None, edgecolor='k')
         #ax.add_collection(pc)
         #ax.relim()
+        ax.set_ylim([135, 160])
         ax.title.set_text('Branch %s'%str(branchID))
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
         ax.autoscale_view()
-        plt.gca().invert_yaxis()
+        #plt.gca().invert_yaxis()
         #plt.show()
         plt.savefig('figures_grids\grid_branch_%s.png'%str(branchID))
         plt.close()
@@ -215,8 +218,9 @@ class W2_Bathymetry(object):
         X = [0] + X[:-1]
         Z = [0] + Z[:-1]
         
-        #pdb.set_trace()
-        Z = [148.3 - zz for zz in Z]
+        #Z = [148.3 - zz for zz in Z]
+        X = [xx - 862.5 for xx in X]
+        Z = [156.07 - zz for zz in Z]  ## check W2ControlGUI
         
         ############################################
         pat = []
@@ -225,11 +229,12 @@ class W2_Bathymetry(object):
 #                 ax.axvline(x=X[i], color='k')
 #                 ax.axhline(y=Z[j], color='k')
                 if lyrs[i,j] == 0:  ## masked grid
-                    sq = patches.Rectangle((X[i], Z[j]), seg_length[i], self.lyr_height[j], fill=True)
+                    sq = patches.Rectangle((X[i], Z[j]), seg_length[i], self.lyr_height[j], linewidth=0.1, fill=True)
                 elif lyrs[i,j] != 0:  ## computational grid
-                    sq = patches.Rectangle((X[i], Z[j]), seg_length[i], self.lyr_height[j], fill=False)
+                    sq = patches.Rectangle((X[i], Z[j]), seg_length[i], self.lyr_height[j], linewidth=0.1, fill=False)
                 pat.append(sq)
 #                ax.add_patch(sq)
+        
         
         return pat
         
@@ -241,5 +246,5 @@ if __name__ == "__main__":
     
     filename = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3\Bth_WB1.npt'
     WB = W2_Bathymetry(filename)
-    WB.VisBranch(5)
+    WB.VisBranch(1)
     

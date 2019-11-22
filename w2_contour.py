@@ -180,7 +180,7 @@ class W2_Contour(object):
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
         ax.title.set_text('Time: %s'%timestr)
         ax.set_xlim([0, 25000])
-        ax.set_ylim([135, 150])
+        ax.set_ylim([135, 160])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
@@ -208,4 +208,4 @@ if __name__ == "__main__":
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WC = W2_Contour(wdir)
     #WC.VisContour('Tracer', -2, Plotuv=True)
-    WC.VisContour('T', -2, Plotuv=True)
+    WC.VisContour('T', -2, Plotuv=True, PlotGrid=True)
