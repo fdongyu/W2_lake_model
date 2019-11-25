@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import pandas as pd
+import utm
 
 from segmentation import W2_Segmentation
 
@@ -118,7 +119,7 @@ class W2_Particle_Tracking(object):
     
     
             
-    def VisFinal(self, PlotGrid=True):
+    def VisFinal(self, PlotGrid=True, saveshp=True):
         """
         visualize the particle trajectories at a given time step
         set PlotTemp == False for now, need to figure out how to contour plot 1D array
@@ -170,6 +171,9 @@ class W2_Particle_Tracking(object):
         
             #pdb.set_trace()
         
+        if saveshp == True:
+            self.writeShp(x, y)
+        
         
         plt.rcParams.update({'font.size': 18})
         #fig = plt.figure(figsize=(11.5,10))
@@ -198,26 +202,70 @@ class W2_Particle_Tracking(object):
             for i in range(len(WB.westPnts5)):
                 ax.plot([WB.westPnts5[i,0], WB.eastPnts5[i,0]], [WB.westPnts5[i,1], WB.eastPnts5[i,1]], '-k')
             
-#            for i in range(len(WB.segs1)):
-#                ax.annotate('%s'%str(WB.segs1[i]), (WB.Pnts1[i,0], WB.Pnts1[i,1]), color='r', fontsize=10)
-#            for i in range(len(WB.segs2)):
-#                ax.annotate('%s'%str(WB.segs2[i]), (WB.Pnts2[i,0], WB.Pnts2[i,1]), color='r', fontsize=10)
-#            for i in range(len(WB.segs3)):
-#                ax.annotate('%s'%str(WB.segs3[i]), (WB.Pnts3[i,0], WB.Pnts3[i,1]), color='r', fontsize=10)
-#            for i in range(len(WB.segs4)):
-#                ax.annotate('%s'%str(WB.segs4[i]), (WB.Pnts4[i,0], WB.Pnts4[i,1]), color='r', fontsize=10)
-#            for i in range(len(WB.segs5)):
-#                ax.annotate('%s'%str(WB.segs5[i]), (WB.Pnts5[i,0], WB.Pnts5[i,1]), color='r', fontsize=10)
+            for i in range(len(WB.segs1)):
+                ax.annotate('%s'%str(WB.segs1[i]), (WB.Pnts1[i,0], WB.Pnts1[i,1]), color='b', fontsize=8)
+            for i in range(len(WB.segs2)):
+                ax.annotate('%s'%str(WB.segs2[i]), (WB.Pnts2[i,0], WB.Pnts2[i,1]), color='b', fontsize=8)
+            for i in range(len(WB.segs3)):
+                ax.annotate('%s'%str(WB.segs3[i]), (WB.Pnts3[i,0], WB.Pnts3[i,1]), color='b', fontsize=8)
+            for i in range(len(WB.segs4)):
+                ax.annotate('%s'%str(WB.segs4[i]), (WB.Pnts4[i,0], WB.Pnts4[i,1]), color='b', fontsize=8)
+            for i in range(len(WB.segs5)):
+                ax.annotate('%s'%str(WB.segs5[i]), (WB.Pnts5[i,0], WB.Pnts5[i,1]), color='b', fontsize=8)
         
-        ax.set_xlim([-20000,10000])
+        #ax.set_xlim([-20000,10000])
+        ax.set_xlabel('Easting [m]')
+        ax.set_ylabel('Northing [m]')
         ax.set_aspect(True)
         #plt.show()
         plt.savefig('particle_location_horizontal.png')
         plt.close()
         #pdb.set_trace()
         
-        
     
+    def writeShp(self, x, y):
+        """
+        write particle coordinates to GIS shapefile
+        https://gis.stackexchange.com/questions/119160/using-pyshp-to-create-polygon-shapefiles
+        https://salsa.debian.org/debian-gis-team/pyshp
+        """
+        import shapefile as shp
+        
+        ## step 1: convert UTM to latitude and longitude
+        lat = np.zeros_like(x)
+        lon = np.zeros_like(y)        
+        for i in range(len(x)):
+            lat[i], lon[i] = utm.to_latlon(x[i], y[i], 14, 'U')
+    
+        
+        ## step 2: write to shapefile
+        w = shp.Writer('final_particle')
+        w.field('Lon','C')
+        w.field('Lat','C') #float - needed for coordinates
+        w.field('PID', 'C')
+        
+        for i in range(len(x)):
+            w.point(lon[i], lat[i])
+            w.record("{:.3f}".format(lon[i]), "{:.3f}".format(lat[i]), str(i))
+            #w.record(str(i))
+    
+        w.close()
+        
+#        prj = open("final_particle.prj", "w") 
+#        epsg = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]' 
+#        prj.write(epsg) 
+#        prj.close()
+        
+        prj = open("final_particle.prj", "w") 
+        epsg = 'GEOGCS["WGS 84",'
+        epsg += 'DATUM["WGS_1984",'
+        epsg += 'SPHEROID["WGS 84",6378137,298.257223563]]'
+        epsg += ',PRIMEM["Greenwich",0],'
+        epsg += 'UNIT["degree",0.0174532925199433]]'
+        prj.write(epsg)
+        prj.close()
+        
+        #pdb.set_trace()
     
     
     def JDAY_con(self,JDAY):
@@ -240,6 +288,7 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1404_test0'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WPT = W2_Particle_Tracking(wdir)
     WPT.VisFinal(PlotGrid=True)
