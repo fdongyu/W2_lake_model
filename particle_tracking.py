@@ -37,12 +37,12 @@ class W2_Particle_Tracking(object):
         
         self.workdir = workdir
         
-    def ReadBackground(self, branchID='1'):
+    def ReadBackground(self, branchID=1):
         """
         read Branch1.dat, ... 
         The background flow
         """
-        filename = '%s\\Branch%s.dat'%(self.workdir, branchID)
+        filename = '%s\\Branch%s.dat'%(self.workdir, str(branchID))
         
         ## Step 1: read the timeframe info: JDAY
         f = open(filename, 'r')
@@ -109,11 +109,11 @@ class W2_Particle_Tracking(object):
         
         
         
-    def ReadParticles(self, branchID='1'):
+    def ReadParticles(self, branchID=1):
         """
         read Part1.dat, ...
         """
-        filename = '%s\\Part%s.dat'%(self.workdir, branchID)
+        filename = '%s\\Part%s.dat'%(self.workdir, str(branchID))
         
         
         ## Step 1: read the timeframe info: JDAY
@@ -175,23 +175,22 @@ class W2_Particle_Tracking(object):
             
         #pdb.set_trace()
         
-    def VisParticles(self, timestep=-1, PlotFlow=True, PlotTemp=True, PlotGrid=True):
+    def VisParticles(self, timestep=-1, branchID=1, PlotFlow=True, PlotTemp=True, PlotGrid=True):
         """
         visualize the particle trajectories at a given time step
         set PlotTemp == False for now, need to figure out how to contour plot 1D array
         """
-        self.ReadParticles('1')
+        self.ReadParticles(branchID)
         
         X = self.X[timestep]
         Z = self.Z[timestep]
         
         if PlotFlow == True or PlotTemp == True:
-            self.ReadBackground('1')
+            self.ReadBackground(branchID)
             X_flow = self.X_flow[timestep]
             Z_flow = self.Z_flow[timestep]
         
         plt.rcParams.update({'font.size': 18})
-        #fig = plt.figure(figsize=(11.5,10))
         fig = plt.figure(figsize=(11.5,8))
         ax = fig.add_subplot(111)
         ax.plot(X, Z, '.', color = 'r')
@@ -226,7 +225,7 @@ class W2_Particle_Tracking(object):
             T = np.asarray(T)
             
             triang = tri.Triangulation(X_flow, Z_flow)
-            isbad = np.less_equal(np.asarray(self.T[-1]), 0) 
+            isbad = np.less_equal(np.asarray(self.T[-2]), 0) 
             #isbad = np.equal(U, 0) & np.equal(W, 0)
             mask = np.any(np.where(isbad[triang.triangles], True, False), axis=1)
             triang.set_mask(mask)
@@ -253,7 +252,7 @@ class W2_Particle_Tracking(object):
             from bathymetry import W2_Bathymetry
             filename = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
             WB = W2_Bathymetry(filename)
-            pat = WB.VisBranch2(1)
+            pat = WB.VisBranch2(branchID)
             for sq in pat:
                 ax.add_patch(sq)
             ax.autoscale_view()
@@ -268,18 +267,18 @@ class W2_Particle_Tracking(object):
         ax.set_ylabel('Water Depth (m)')
         #ax.yaxis.grid(True)
         #ax.xaxis.grid(True)
-        #plt.show()
-        plt.savefig('particle_tracks_%s.png'%str(timestep))
+        plt.show()
+        #plt.savefig('particle_tracks_%s.png'%str(timestep))
         #plt.savefig('example_%s.png'%str(timestep))
-        plt.close()
+        #plt.close()
         
     
         
-    def VisParticles_full(self):
+    def VisParticles_full(self, branchID=1):
         """
         visualize the particle trajectories, the particles at all time steps are plotted
         """
-        self.ReadParticles('1')
+        self.ReadParticles(branchID)
     
         X = [item for sublist in self.X for item in sublist]
         Z = [item for sublist in self.Z for item in sublist]
@@ -320,9 +319,15 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline3'
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1404_test0'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191122_1525_test3'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191125_0959_test4'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191125_1632_test7'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191126_1156_test9'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191126_1325_test10'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191126_1421_test11'
     WPT = W2_Particle_Tracking(wdir)
-    WPT.VisParticles(11, PlotGrid=True)
+    WPT.VisParticles(2, branchID=5, PlotGrid=True)
     
     
