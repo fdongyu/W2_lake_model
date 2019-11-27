@@ -163,11 +163,15 @@ class W2_Particle_Tracking(object):
             xtem = Pnts[segID-2][0] - self.Xlocation[i]*np.sin(seg_ori[segID-2])
             ytem = Pnts[segID-2][1] - self.Xlocation[i]*np.cos(seg_ori[segID-2])
             
-            ## goes Lateral direction starting from left bank
+            ## goes Lateral direction starting from left bank, the left is determined facing downstream, manual page 309
             #x.append( xtem +  lyrs[segID-2][layerID]/2.*np.cos(np.pi*2-seg_ori[segID-2]) )
             #y.append( ytem +  lyrs[segID-2][layerID]/2.*np.sin(np.pi*2-seg_ori[segID-2]) )
-            x.append( xtem - lyrs[segID-2][layerID]/2.*np.cos(np.pi*2-seg_ori[segID-2]) +  laterDist*np.cos(np.pi*2-seg_ori[segID-2]) )
-            y.append( ytem - lyrs[segID-2][layerID]/2.*np.sin(np.pi*2-seg_ori[segID-2]) +  laterDist*np.sin(np.pi*2-seg_ori[segID-2]) )
+            ## This is the left facing upstream
+            #x.append( xtem - lyrs[segID-2][layerID]/2.*np.cos(np.pi*2-seg_ori[segID-2]) +  laterDist*np.cos(np.pi*2-seg_ori[segID-2]) )
+            #y.append( ytem - lyrs[segID-2][layerID]/2.*np.sin(np.pi*2-seg_ori[segID-2]) +  laterDist*np.sin(np.pi*2-seg_ori[segID-2]) )
+            ## This is the left facing downstream
+            x.append( xtem + lyrs[segID-2][layerID-1]/2.*np.cos(np.pi*2-seg_ori[segID-2]) -  laterDist*np.cos(np.pi*2-seg_ori[segID-2]) )
+            y.append( ytem + lyrs[segID-2][layerID-1]/2.*np.sin(np.pi*2-seg_ori[segID-2]) -  laterDist*np.sin(np.pi*2-seg_ori[segID-2]) )
         
             #pdb.set_trace()
         
@@ -217,9 +221,9 @@ class W2_Particle_Tracking(object):
         ax.set_xlabel('Easting [m]')
         ax.set_ylabel('Northing [m]')
         ax.set_aspect(True)
-        #plt.show()
-        plt.savefig('particle_location_horizontal.png')
-        plt.close()
+        plt.show()
+        #plt.savefig('particle_location_horizontal.png')
+        #plt.close()
         #pdb.set_trace()
         
     
@@ -289,6 +293,8 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191111_baseline4'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1404_test0'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191115_1640_test1'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191122_1525_test3'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191126_1421_test11'
     WPT = W2_Particle_Tracking(wdir)
-    WPT.VisFinal(PlotGrid=True)
+    WPT.VisFinal(PlotGrid=True, saveshp=False)
