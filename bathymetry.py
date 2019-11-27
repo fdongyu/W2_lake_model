@@ -219,8 +219,21 @@ class W2_Bathymetry(object):
         Z = [0] + Z[:-1]
         
         #Z = [148.3 - zz for zz in Z]
-        X = [xx - 862.5 for xx in X]
-        Z = [156.07 - zz for zz in Z]  ## check W2ControlGUI
+        if branchID == 1:
+            X = [xx - 862.5 for xx in X]
+        elif branchID == 2:
+            X = [xx - 652.7 for xx in X]   ## starting from segment 47
+        elif branchID == 3:
+            X = [xx - 788.6 for xx in X]   ## starting from segment 62
+        elif branchID == 4:
+            X = [xx - 1132 for xx in X]   ## starting from segment 76
+        elif branchID == 5:
+            X = [xx - 673.8 for xx in X]   ## starting from segment 86
+            
+            
+        
+        #Z = [156.07 - 0.61/2. - zz for zz in Z]  ## check W2ControlGUI
+        Z = [156.07 - zz for zz in Z]
         
         ############################################
         pat = []
