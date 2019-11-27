@@ -82,6 +82,7 @@ class W2_Contour(object):
         RHO = []
         TDS = []
         tracer = []
+        
         for i in range(len(backflow_sections)):
             section = backflow_sections[i]
             xtem = [float(l[0]) for l in section]
@@ -91,7 +92,18 @@ class W2_Contour(object):
             Ttem = [float(t[4]) for t in section]
             rhotem = [float(rho[5]) for rho in section]
             tdstem = [float(tds[6]) for tds in section]
-            trtem = [float(tr[7]) for tr in section]
+            
+            try:
+                trtem = [float(tr[7]) for tr in section]
+            except:
+                ttrrtem = []
+                for tr in section:
+                    try:
+                        ttrrtem.append(float(tr[7]))
+                    except:
+                        ttrrtem.append(0)
+                trtem.append(ttrrtem)
+                
             self.X_flow.append(xtem)
             self.Z_flow.append(ztem)
             self.U.append(utem)
@@ -100,12 +112,11 @@ class W2_Contour(object):
             RHO.append(rhotem)
             TDS.append(tdstem)
             tracer.append(trtem)
-        
-        
+            
         ## create python dictionary for water quality variables
         self.var_output = {}
         self.var_output.update({'TDS':{'value': TDS,'limits':[140,200], 'long_name': 'Total dissolved solids'}})
-        self.var_output.update({'Tracer':{'value': tracer,'limits':[0,1], 'long_name': 'Conservative tracer'}})
+        self.var_output.update({'Tracer':{'value': tracer,'limits':[0,2], 'long_name': 'Conservative tracer'}})
         self.var_output.update({'T':{'value': T,'limits':[0,35], 'long_name': 'Water temperature (C)'}})
         
         #pdb.set_trace()
@@ -224,10 +235,10 @@ class W2_Contour(object):
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
         ax.xaxis.grid(True)
-        plt.show()
-        #plt.savefig('%s_%s.png'%(varname,str(timestep)))
+        #plt.show()
+        plt.savefig('%s\\%s_%s_%s.png'%(self.workdir, varname, str(branchID), str(timestep)))
         #plt.savefig('example.png')
-        #plt.close()
+        plt.close()
 
         
         
@@ -244,8 +255,9 @@ class W2_Contour(object):
         
 if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
-    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1115_tracer_test'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', timestep=5, branchID=1, Plotuv=True, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=20, branchID=1, Plotuv=True, PlotGrid=True)
     #WC.VisContour('T', -2, Plotuv=True, PlotGrid=False)
