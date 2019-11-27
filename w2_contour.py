@@ -111,7 +111,7 @@ class W2_Contour(object):
         #pdb.set_trace()
         
         
-    def VisContour(self, varname='Tracer', timestep=-1, Plotuv=False, PlotGrid=False):
+    def VisContour(self, varname='Tracer', timestep=-1, branchID=1, Plotuv=False, PlotGrid=False):
         """
         Create the contour plot of a variable given the variable name
         variable names are provided in cpl.opt
@@ -120,21 +120,68 @@ class W2_Contour(object):
         """
         self.Readcpl()
         
-                
-        X_flow = self.X_flow[timestep]
-        Z_flow = self.Z_flow[timestep]
         
+        ## search for index for each branch 
+        ## algorithm find the distance between two elements in self.X_flow that are large, 
+        ## this is where the two branches separate
+        dist = np.diff(self.X_flow[0])
+        inds = np.where(dist>1200)[0]
+        
+        ## this way is not necessary but clear
+        if branchID == 1:
+            ind0 = 0
+            ind1 = inds[0]
+        elif branchID == 2:
+            ind0 = inds[0]+1
+            ind1 = inds[1]
+        elif branchID == 3:
+            ind0 = inds[1]+1
+            ind1 = inds[2]
+        elif branchID == 4:
+            ind0 = inds[2]+1
+            ind1 = inds[3]
+        elif branchID == 5:
+            ind0 = inds[3]+1
+            ind1 = len(self.X_flow[0])
+            
+            
+            
+        X_flow = self.X_flow[timestep][ind0:ind1+1]
+        Z_flow = self.Z_flow[timestep][ind0:ind1+1]
+        
+        X_flow = np.asarray(X_flow)
+        Z_flow = np.asarray(Z_flow)
+
+
         plt.rcParams.update({'font.size': 18})
         fig = plt.figure(figsize=(11.5,8))
         ax = fig.add_subplot(111)
         
-        if Plotuv:
-            #pdb.set_trace()
-            X_flow = np.asarray(X_flow)
-            Z_flow = np.asarray(Z_flow)
+        
+        if PlotGrid == True:
+            from bathymetry import W2_Bathymetry
+            filename = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WB = W2_Bathymetry(filename)
+            pat = WB.VisBranch2(branchID)
+            for sq in pat:
+                ax.add_patch(sq)
+            ax.autoscale_view()
             
-            U = self.U[timestep]
-            W = self.W[timestep]
+            ## align each branch with grid 
+            ## not sure how X is defined in the model 
+            ## algorithm starting from the end of the branch  
+            dx =  WB.X.max() - X_flow.max()
+            X_flow += dx
+            
+            #pdb.set_trace()
+        
+        
+        if Plotuv:
+            #X_flow = np.asarray(X_flow)
+            #Z_flow = np.asarray(Z_flow)
+            
+            U = self.U[timestep][ind0:ind1+1]
+            W = self.W[timestep][ind0:ind1+1]
             U = np.asarray(U)
             W = np.asarray(W)
             mask = np.logical_or(U != self.mask_value,W != self.mask_value)
@@ -149,7 +196,7 @@ class W2_Contour(object):
             qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
         
         
-        var = self.var_output[varname]['value'][timestep]
+        var = self.var_output[varname]['value'][timestep][ind0:ind1+1]
         var = np.asarray(var)
         #tracer[tracer==self.mask_value] = np.nan
         var = np.ma.masked_array(var,mask=var==self.mask_value)
@@ -158,8 +205,8 @@ class W2_Contour(object):
         #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
         levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
         
-        cs = ax.tricontourf(X_flow, Z_flow, var, cmap=plt.cm.bone, levels=levels)
-            
+        cmap = plt.set_cmap('bone_r')
+        cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -168,26 +215,19 @@ class W2_Contour(object):
         cb.ax.yaxis.offsetText.set_fontsize(14)
         cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=18)
             
-        if PlotGrid == True:
-            from bathymetry import W2_Bathymetry
-            filename = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WB = W2_Bathymetry(filename)
-            pat = WB.VisBranch2(1)
-            for sq in pat:
-                ax.add_patch(sq)
-            ax.autoscale_view()
             
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
         ax.title.set_text('Time: %s'%timestr)
-        ax.set_xlim([0, 25000])
+        #ax.set_xlim([0, 60000])
         ax.set_ylim([135, 160])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
         ax.yaxis.grid(True)
         ax.xaxis.grid(True)
-        plt.savefig('%s_%s.png'%(varname,str(timestep)))
+        plt.show()
+        #plt.savefig('%s_%s.png'%(varname,str(timestep)))
         #plt.savefig('example.png')
-        plt.close()
+        #plt.close()
 
         
         
@@ -204,8 +244,8 @@ class W2_Contour(object):
         
 if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
-    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191121_1112_test2'
     WC = W2_Contour(wdir)
-    #WC.VisContour('Tracer', -2, Plotuv=True)
-    WC.VisContour('T', -2, Plotuv=True, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=5, branchID=1, Plotuv=True, PlotGrid=True)
+    #WC.VisContour('T', -2, Plotuv=True, PlotGrid=False)

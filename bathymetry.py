@@ -249,6 +249,10 @@ class W2_Bathymetry(object):
 #                ax.add_patch(sq)
         
         
+        ## this is for align grid with data
+        self.X = np.asarray(X)
+        self.Z = np.asarray(Z)
+        
         return pat
         
 
