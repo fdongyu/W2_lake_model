@@ -211,10 +211,12 @@ class W2_Contour(object):
         var = np.asarray(var)
         #tracer[tracer==self.mask_value] = np.nan
         var = np.ma.masked_array(var,mask=var==self.mask_value)
+        
         #xgrid, zgrid = np.meshgrid(X_flow, Z_flow)
         #Tgrid = griddata((X_flow, Z_flow), T, (xgrid, zgrid))
         #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
-        levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
+        #levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
+        levels = np.linspace(var.min(), var.max(), 100)
         
         cmap = plt.set_cmap('bone_r')
         cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
