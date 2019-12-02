@@ -225,11 +225,11 @@ class W2_Contour(object):
         cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
         cb = fig.colorbar(cs, cax=cax, orientation='vertical')
-        cb.ax.tick_params(labelsize=18)
-        cb.ax.yaxis.offsetText.set_fontsize(14)
-        cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=18)
+        cb.ax.tick_params(labelsize=12)
+        cb.ax.yaxis.offsetText.set_fontsize(12)
+        cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
             
             
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
@@ -238,12 +238,117 @@ class W2_Contour(object):
         ax.set_ylim([135, 160])
         ax.set_xlabel('Distance from upstream (m)')
         ax.set_ylabel('Water Depth (m)')
-        ax.yaxis.grid(True)
-        ax.xaxis.grid(True)
-        #plt.show()
-        plt.savefig('%s\\%s_%s_%s.png'%(self.workdir, varname, str(branchID), str(timestep)))
+        #ax.yaxis.grid(True)
+        #ax.xaxis.grid(True)
+        plt.show()
+        #plt.savefig('%s\\%s_%s_%s.png'%(self.workdir, varname, str(branchID), str(timestep)))
         #plt.savefig('example.png')
-        plt.close()
+        #plt.close()
+        
+    
+    def AnimateContour(self, varname='Tracer', branchID=1, PlotGrid=False):
+        """
+        create animation 
+        """
+        import matplotlib.animation as animation
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        
+        
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=5, metadata=dict(artist='Me'), bitrate=1800)
+        
+        self.Readcpl()
+        
+        plt.rcParams.update({'font.size': 18})
+        fig = plt.figure(figsize=(12.5,8))
+        ax = fig.add_subplot(111)
+        
+        if PlotGrid == True:
+            from bathymetry import W2_Bathymetry
+            filename = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WB = W2_Bathymetry(filename)
+            pat = WB.VisBranch2(branchID)
+            
+        
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        
+        def animate(ii):
+            ax.clear()
+            ## search for index for each branch 
+            ## algorithm find the distance between two elements in self.X_flow that are large, 
+            ## this is where the two branches separate
+            dist = np.diff(self.X_flow[ii])
+            inds = np.where(dist>1200)[0]
+            ## this way is not necessary but clear
+            if branchID == 1:
+                ind0 = 0
+                ind1 = inds[0]
+            elif branchID == 2:
+                ind0 = inds[0]+1
+                ind1 = inds[1]
+            elif branchID == 3:
+                ind0 = inds[1]+1
+                ind1 = inds[2]
+            elif branchID == 4:
+                ind0 = inds[2]+1
+                ind1 = inds[3]
+            elif branchID == 5:
+                ind0 = inds[3]+1
+                ind1 = len(self.X_flow[ii])
+                
+            X_flow = self.X_flow[ii][ind0:ind1+1]
+            Z_flow = self.Z_flow[ii][ind0:ind1+1]
+            X_flow = np.asarray(X_flow)
+            Z_flow = np.asarray(Z_flow)
+            
+            if PlotGrid == True: 
+                for sq in pat:
+                    ax.add_patch(sq)
+                ax.autoscale_view()  
+                ## align each branch with grid 
+                dx =  WB.X.max() - X_flow.max()
+                X_flow += dx
+            
+            U = self.U[ii][ind0:ind1+1]
+            W = self.W[ii][ind0:ind1+1]
+            U = np.asarray(U)
+            W = np.asarray(W)
+            mask = np.logical_or(U != self.mask_value,W != self.mask_value)
+            
+            scale = 1.
+            scale = 100./scale
+            Q = ax.quiver(X_flow[mask], Z_flow[mask], np.asarray(U[mask])*100., np.asarray(W[mask])*100.,
+                              zorder=5, width=0.001, headwidth=4, headlength=4.5,
+                              scale=scale, color='r')
+            qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
+            
+            
+            var = self.var_output[varname]['value'][ii][ind0:ind1+1]
+            var = np.asarray(var)
+            var = np.ma.masked_array(var,mask=var==self.mask_value)
+            levels = np.linspace(var.min(), var.max(), 100)
+            cmap = plt.set_cmap('bone_r')
+            cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
+            
+        
+            cb = fig.colorbar(cs, cax=cax, orientation='vertical')
+            cb.ax.tick_params(labelsize=12)
+            cb.ax.yaxis.offsetText.set_fontsize(12)
+            cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
+            
+            
+            timestr = datetime.strftime(self.runtimes[ii],'%Y-%m-%d')
+            ax.title.set_text('Time: %s'%timestr)
+            ax.set_ylim([135, 160])
+            ax.set_xlabel('Distance from upstream (m)')
+            ax.set_ylabel('Water Depth (m)')
+            
+            return cs, cax
+            
+            
+        anim = animation.FuncAnimation(fig, animate, frames=100, interval=600, blit=False)
+        anim.save('%s\\tracer.mp4'%self.workdir, writer=writer)
 
         
         
@@ -264,6 +369,7 @@ if __name__ == "__main__":
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1115_tracer_test'
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', timestep=1450, branchID=1, Plotuv=True, PlotGrid=True)
-    #WC.VisContour('T', -2, Plotuv=True, PlotGrid=False)
+    #WC.VisContour('Tracer', timestep=35, branchID=1, Plotuv=True, PlotGrid=True)
+    WC.AnimateContour('Tracer', branchID=1, PlotGrid=True)
