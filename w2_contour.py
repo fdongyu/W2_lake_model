@@ -135,7 +135,8 @@ class W2_Contour(object):
         ## search for index for each branch 
         ## algorithm find the distance between two elements in self.X_flow that are large, 
         ## this is where the two branches separate
-        dist = np.diff(self.X_flow[0])
+        #dist = np.diff(self.X_flow[0])
+        dist = np.diff(self.X_flow[timestep])
         inds = np.where(dist>1200)[0]
         
         ## this way is not necessary but clear
@@ -153,7 +154,8 @@ class W2_Contour(object):
             ind1 = inds[3]
         elif branchID == 5:
             ind0 = inds[3]+1
-            ind1 = len(self.X_flow[0])
+            #ind1 = len(self.X_flow[0])
+            ind1 = len(self.X_flow[timestep])
             
             
             
@@ -181,6 +183,7 @@ class W2_Contour(object):
             ## align each branch with grid 
             ## not sure how X is defined in the model 
             ## algorithm starting from the end of the branch  
+            #pdb.set_trace()
             dx =  WB.X.max() - X_flow.max()
             X_flow += dx
             
@@ -217,7 +220,7 @@ class W2_Contour(object):
         #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
         #levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
         levels = np.linspace(var.min(), var.max(), 100)
-        
+        #pdb.set_trace()
         cmap = plt.set_cmap('bone_r')
         cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
         from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -260,6 +263,7 @@ if __name__ == "__main__":
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1115_tracer_test'
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', timestep=20, branchID=1, Plotuv=True, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=1450, branchID=1, Plotuv=True, PlotGrid=True)
     #WC.VisContour('T', -2, Plotuv=True, PlotGrid=False)
