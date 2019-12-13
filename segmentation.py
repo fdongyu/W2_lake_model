@@ -16,6 +16,7 @@ BR5           86     121       0      43       0       0       1 0.00000     0.0
 
 import numpy as np
 import matplotlib.pyplot as plt
+import utm
 
 from bathymetry import W2_Bathymetry
 
@@ -30,6 +31,8 @@ class W2_Segmentation(object):
     
     Nlyr = 34
     Nseg = 122
+    
+    LatLon = [33.216, -96.438]
     
     def __init__(self, bathfile, **kwargs):
         self.__dict__.update(kwargs)
@@ -72,7 +75,8 @@ class W2_Segmentation(object):
         eastPnts5, westPnts5 = self.SegLyr(Pnts5, branchID=5)
         
         
-        fig = plt.figure(figsize=(12,12))
+        plt.rcParams.update({'font.size': 16})
+        fig = plt.figure(figsize=(10,12))
         ax = fig.add_subplot(111)
         
         ax.plot(Pnts[:,0], Pnts[:,1], '.-k')
@@ -80,6 +84,7 @@ class W2_Segmentation(object):
         ax.plot(Pnts3[:,0], Pnts3[:,1], '.-b')
         ax.plot(Pnts4[:,0], Pnts4[:,1], '.-b')
         ax.plot(Pnts5[:,0], Pnts5[:,1], '.-b')
+        
         
         for i in range(len(westPnts)):
             ax.plot([westPnts[i,0], eastPnts[i,0]], [westPnts[i,1], eastPnts[i,1]], '-k')
@@ -103,16 +108,20 @@ class W2_Segmentation(object):
         for i in range(len(segs5)):
             ax.annotate('%s'%str(segs5[i]), (Pnts5[i,0], Pnts5[i,1]), color='r', fontsize=10)
         
-        ax.set_xlim([-20000,10000])
+        #ax.set_xlim([-20000,10000])
         ax.set_aspect(True)
-        #plt.show()
-        plt.savefig('segmentations.png')
-        plt.close()
+        
+        fig.tight_layout()
+        plt.show()
+        #plt.savefig('segmentations.png')
+        #plt.close()
         
         
         #pdb.set_trace()
         
     def VisSeg2(self):
+        
+        self.readBathymetry()
         
         ## Step One: plot the segment link
         self.segs1,  self.Pnts1,  self.segs2,  self.Pnts2,  self.segs3,  self.Pnts3,  self.segs4,  self.Pnts4,  self.segs5,  self.Pnts5 = self.Seg2Pnt()
@@ -169,7 +178,10 @@ class W2_Segmentation(object):
         
         segs, seg_length, seg_ori, lyrs = self.SegInfo(1)
         
-        Pnts1 = [[0,0]]
+        xy = utm.from_latlon(self.LatLon[0], self.LatLon[1])[:2]
+        
+        #Pnts1 = [[0,0]]
+        Pnts1 = [xy]
             
         for i in range(len(segs)):
             #pdb.set_trace()
