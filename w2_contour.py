@@ -155,7 +155,7 @@ class W2_Contour(object):
         elif branchID == 5:
             ind0 = inds[3]+1
             #ind1 = len(self.X_flow[0])
-            ind1 = len(self.X_flow[timestep])
+            ind1 = len(self.X_flow[timestep]) - 1
             
             
             
@@ -219,7 +219,14 @@ class W2_Contour(object):
         #Tgrid = griddata((X_flow, Z_flow), T, (xgrid, zgrid))
         #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
         #levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
-        levels = np.linspace(var.min(), var.max(), 100)
+        
+        #### quality control remove some very small values
+        #pdb.set_trace()
+        var[(var.mask==False)&(var<1e-15)]=0
+        if var.min() == 0 and var.max() == 0:
+            levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
+        else:
+            levels = np.linspace(var.min(), var.max(), 100)
         #pdb.set_trace()
         cmap = plt.set_cmap('bone_r')
         cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
@@ -246,7 +253,7 @@ class W2_Contour(object):
         #plt.close()
         
     
-    def AnimateContour(self, varname='Tracer', branchID=1, PlotGrid=False):
+    def AnimateContour(self, varname='Tracer', branchID=1, days=100, PlotGrid=False):
         """
         create animation 
         """
@@ -347,9 +354,9 @@ class W2_Contour(object):
             return cs, cax
             
             
-        anim = animation.FuncAnimation(fig, animate, frames=100, interval=600, blit=False)
+        anim = animation.FuncAnimation(fig, animate, frames=days, interval=600, blit=False)
         anim.save('%s\\tracer.mp4'%self.workdir, writer=writer)
-
+        
         
         
         
@@ -367,9 +374,10 @@ if __name__ == "__main__":
     #wdir = r'C:\Users\dfeng\Downloads\v42\Tests\20191112_tracer'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191113_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1115_tracer_test'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
     WC = W2_Contour(wdir)
-    #WC.VisContour('Tracer', timestep=35, branchID=1, Plotuv=True, PlotGrid=True)
-    WC.AnimateContour('Tracer', branchID=1, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=25, branchID=5, Plotuv=True, PlotGrid=True)
+    #WC.AnimateContour('Tracer', branchID=1, days=100, PlotGrid=True)
