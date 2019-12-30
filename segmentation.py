@@ -32,7 +32,7 @@ class W2_Segmentation(object):
     Nlyr = 34
     Nseg = 122
     
-    LatLon = [33.216, -96.438]
+    LatLon = [33.238, -96.41]
     
     def __init__(self, bathfile, **kwargs):
         self.__dict__.update(kwargs)
@@ -133,6 +133,84 @@ class W2_Segmentation(object):
         self.eastPnts3, self.westPnts3 = self.SegLyr(self.Pnts3, branchID=3)
         self.eastPnts4, self.westPnts4 = self.SegLyr(self.Pnts4, branchID=4)
         self.eastPnts5, self.westPnts5 = self.SegLyr(self.Pnts5, branchID=5)
+        
+        
+    def VisSeg_shp(self):
+        """
+        create shapefile to visualize the W2 segments
+        """
+        import shapefile as shp
+        import utm
+        
+        self.readBathymetry()
+        
+        ## Step One: plot the segment link
+        self.segs1,  self.Pnts1,  self.segs2,  self.Pnts2,  self.segs3,  self.Pnts3,  self.segs4,  self.Pnts4,  self.segs5,  self.Pnts5 = self.Seg2Pnt()
+        ## Note the length of the segs = length of Pnts + 1. and the segment is not points, it is the line between two points
+        
+        ## Step Two: each segment
+        self.eastPnts1, self.westPnts1 = self.SegLyr(self.Pnts1, branchID=1)
+        self.eastPnts2, self.westPnts2 = self.SegLyr(self.Pnts2, branchID=2)
+        self.eastPnts3, self.westPnts3 = self.SegLyr(self.Pnts3, branchID=3)
+        self.eastPnts4, self.westPnts4 = self.SegLyr(self.Pnts4, branchID=4)
+        self.eastPnts5, self.westPnts5 = self.SegLyr(self.Pnts5, branchID=5)
+        
+        w = shp.Writer('shp\W2_segments')
+        w.field('branch_ID','C')
+        w.field('segment_ID','C')
+        w.field('Lon_west','C')  #float - needed for coordinates
+        w.field('Lat_west','C') 
+        w.field('Lon_east','C')
+        w.field('Lat_east','C')
+        
+
+        #lines = []
+        for i in range(len(self.westPnts1)):
+            westlat, westlon = utm.to_latlon(self.westPnts1[i,0], self.westPnts1[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(self.eastPnts1[i,0], self.eastPnts1[i,1], 14, 'U')
+            #lines.append([[westlat, westlon], [eastlat, eastlon]])
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch1', str(self.segs1[i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat))
+            
+        for i in range(len(self.westPnts2)):
+            westlat, westlon = utm.to_latlon(self.westPnts2[i,0], self.westPnts2[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(self.eastPnts2[i,0], self.eastPnts2[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch2', str(self.segs2[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat))
+            
+        for i in range(len(self.westPnts3)):
+            westlat, westlon = utm.to_latlon(self.westPnts3[i,0], self.westPnts3[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(self.eastPnts3[i,0], self.eastPnts3[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch3', str(self.segs3[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat))
+        
+        for i in range(len(self.westPnts4)):
+            westlat, westlon = utm.to_latlon(self.westPnts4[i,0], self.westPnts4[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(self.eastPnts4[i,0], self.eastPnts4[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch4', str(self.segs4[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat))
+            
+        for i in range(len(self.westPnts5)):
+            westlat, westlon = utm.to_latlon(self.westPnts5[i,0], self.westPnts5[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(self.eastPnts5[i,0], self.eastPnts5[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch5', str(self.segs5[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat))
+            
+        prj = open("shp\W2_segments.prj", "w") 
+        epsg = 'GEOGCS["WGS 84",'
+        epsg += 'DATUM["WGS_1984",'
+        epsg += 'SPHEROID["WGS 84",6378137,298.257223563]]'
+        epsg += ',PRIMEM["Greenwich",0],'
+        epsg += 'UNIT["degree",0.0174532925199433]]'
+        prj.write(epsg)
+        prj.close()
+            
+        w.close()
         
         
     def BranchPnt(self, branchID=1):
@@ -327,4 +405,5 @@ if __name__ == "__main__":
     
     filename = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\particle_tracking_test\20191111_baseline4\Bth_WB1.npt'
     WB = W2_Segmentation(filename)
-    WB.VisSeg()
+    #WB.VisSeg()
+    WB.VisSeg_shp()
