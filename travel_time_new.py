@@ -151,16 +151,14 @@ class Tracer_Travel_Time(W2_Contour):
         Ttime4 = self.travel_time(endtime=299, branchID=4)
         Ttime5 = self.travel_time(endtime=299, branchID=5)
         
-        
-        
-        
+        ## delete inactive segments
         Ttime1 = Ttime1[1:-1] 
         Ttime2 = Ttime2[1:-1] 
         Ttime3 = Ttime3[1:-1] 
         Ttime4 = Ttime4[1:-1] 
         Ttime5 = Ttime5[1:-1]
         
-        #pdb.set_trace()
+        ## branch 2, 3, 4, 5, adding time from the main branch
         Ttime2[Ttime2!=0] = Ttime2[Ttime2!=0] - Ttime2[-1] + Ttime1[self.DHS2-2]
         Ttime3[Ttime3!=0] = Ttime3[Ttime3!=0] - Ttime3[-1] + Ttime1[self.DHS3-2]
         Ttime4[Ttime4!=0] = Ttime4[Ttime4!=0] - Ttime4[-1] + Ttime1[self.DHS4-2]
@@ -169,11 +167,11 @@ class Tracer_Travel_Time(W2_Contour):
         ## also remember to remove inactivate segments from Ttimes
         Ttimes = [Ttime1, Ttime2, Ttime3, Ttime4, Ttime5]
         
-        self.Ttime_plot(Ttimes)
+        self.Ttime_plot(Ttimes, write2shp=True)
         
     
     
-    def Ttime_plot(self, Ttimes, plotBranch=True):
+    def Ttime_plot(self, Ttimes, plotBranch=True, write2shp=False):
         """
         Visualize the travel time on W2 segments
         multiple lines' color changing the values corresponding to gradient color:
@@ -192,26 +190,17 @@ class Tracer_Travel_Time(W2_Contour):
         WS.VisSeg2()
         
         
-        #### line color
-#        zz = Ttimes[0]
-#        r = (zz.astype(np.float)-zz.min())/(zz.max()-zz.min())
-#        g = 0
-#        b = 1 - r
-#        #### colorbar
-#        # Setting up a colormap that's a simple transtion
-#        mymap = mpl.colors.LinearSegmentedColormap.from_list('mycolors',['blue','red'])
-#        # Using contourf to provide my colorbar info, then clearing the figure
-#        ss = 1
-#        levels = np.arange(zz.min(),zz.max(),ss)
-#        CS3 = plt.contourf([[0,0],[0,0]], levels, cmap=mymap)
-#        plt.clf()
-#        pdb.set_trace()
+        #### create shapefile to integrate with ArcGIS
+        if write2shp:
+            self.writeShpLines(WS, Ttimes)
+        
+        pdb.set_trace()
+        
         
         nt = []
         for l in Ttimes:
             nt.append(len(l))
             
-        
         #### line color
         zz = Ttimes[0].tolist() + Ttimes[1].tolist() + Ttimes[2].tolist() + Ttimes[3].tolist() + Ttimes[4].tolist()
         zz = np.asarray(zz)
@@ -227,11 +216,7 @@ class Tracer_Travel_Time(W2_Contour):
         for i in range(len(zz)):
             if zz[i] == 0:
                 colorlist[i] = 'gray'
-#                r[i] = 1
-#                g[i] = 1
-#                b[i] = 1
-        
-        
+                
         #### colorbar
         # Setting up a colormap that's a simple transtion
         mymap = mpl.colors.LinearSegmentedColormap.from_list('mycolors',['blue','red'])
@@ -307,6 +292,8 @@ class Tracer_Travel_Time(W2_Contour):
         fig.tight_layout()
         plt.show()
         
+    
+        
         
             
     def Xsearch(self, xin, zin, varin):
@@ -361,11 +348,78 @@ class Tracer_Travel_Time(W2_Contour):
         
         #pdb.set_trace()
         return np.unique(segID)
+    
+    
+    def writeShpLines(self, WS, Ttimes):
+        """
+        write segment lines into ArcGIS readable shapefile
+        Input segment object
+        """
+        import shapefile as shp
+        import utm
         
+        w = shp.Writer('traveltime')
         
+        w.field('branch_ID','C')
+        w.field('segment_ID','C')
+        w.field('Lon_west','C')  #float - needed for coordinates
+        w.field('Lat_west','C') 
+        w.field('Lon_east','C')
+        w.field('Lat_east','C')
+        w.field('Travel_time','C')
+        
+        for i in range(len(WS.westPnts1)):
+            westlat, westlon = utm.to_latlon(WS.westPnts1[i,0], WS.westPnts1[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(WS.eastPnts1[i,0], WS.eastPnts1[i,1], 14, 'U')
+            #lines.append([[westlat, westlon], [eastlat, eastlon]])
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch1', str(WS.segs1[i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat), "{:.1f}".format(Ttimes[0][i]))
+            
+        for i in range(len(WS.westPnts2)):
+            westlat, westlon = utm.to_latlon(WS.westPnts2[i,0], WS.westPnts2[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(WS.eastPnts2[i,0], WS.eastPnts2[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch2', str(WS.segs2[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat), "{:.1f}".format(Ttimes[1][i]))
+            
+        for i in range(len(WS.westPnts3)):
+            westlat, westlon = utm.to_latlon(WS.westPnts3[i,0], WS.westPnts3[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(WS.eastPnts3[i,0], WS.eastPnts3[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch3', str(WS.segs3[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat), "{:.1f}".format(Ttimes[2][i]))
+        
+        for i in range(len(WS.westPnts4)):
+            westlat, westlon = utm.to_latlon(WS.westPnts4[i,0], WS.westPnts4[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(WS.eastPnts4[i,0], WS.eastPnts4[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch4', str(WS.segs4[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat), "{:.1f}".format(Ttimes[3][i]))
+            
+        for i in range(len(WS.westPnts5)):
+            westlat, westlon = utm.to_latlon(WS.westPnts5[i,0], WS.westPnts5[i,1], 14, 'U')
+            eastlat, eastlon = utm.to_latlon(WS.eastPnts5[i,0], WS.eastPnts5[i,1], 14, 'U')
+            w.line([[[westlon, westlat], [eastlon, eastlat]]])
+            w.record('branch5', str(WS.segs5[::-1][i]), "{:.3f}".format(westlon), "{:.3f}".format(westlat), \
+                     "{:.3f}".format(eastlon), "{:.3f}".format(eastlat), "{:.1f}".format(Ttimes[4][i]))
+        
+        w.close()
+        
+        prj = open("traveltime.prj", "w") 
+        epsg = 'GEOGCS["WGS 84",'
+        epsg += 'DATUM["WGS_1984",'
+        epsg += 'SPHEROID["WGS 84",6378137,298.257223563]]'
+        epsg += ',PRIMEM["Greenwich",0],'
+        epsg += 'UNIT["degree",0.0174532925199433]]'
+        prj.write(epsg)
+        prj.close()
+        
+        pdb.set_trace()
         
         
 if __name__ == "__main__":
+    
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1115_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
