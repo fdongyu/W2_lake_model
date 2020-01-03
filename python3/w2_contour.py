@@ -129,8 +129,9 @@ class W2_Contour(object):
         e.g. 'U', 'W', 'Tracer'
         The python dictionary for variables can be found in vardict.py
         """
-        self.Readcpl()
+        import matplotlib.tri as tri
         
+        self.Readcpl()
         
         ## search for index for each branch 
         ## algorithm find the distance between two elements in self.X_flow that are large, 
@@ -179,16 +180,12 @@ class W2_Contour(object):
             for sq in pat:
                 ax.add_patch(sq)
             ax.autoscale_view()
-            
             ## align each branch with grid 
             ## not sure how X is defined in the model 
             ## algorithm starting from the end of the branch  
-            #pdb.set_trace()
             dx =  WB.X.max() - X_flow.max()
             X_flow += dx
             
-            #pdb.set_trace()
-        
         
         if Plotuv:
             #X_flow = np.asarray(X_flow)
@@ -210,26 +207,30 @@ class W2_Contour(object):
             qk = ax.quiverkey(Q, 0.15, 0.15, 1, r'$1 \frac{cm}{s}$', labelpos='W',fontproperties={'weight': 'bold','size':20})
         
         
+        
         var = self.var_output[varname]['value'][timestep][ind0:ind1+1]
         var = np.asarray(var)
-        #tracer[tracer==self.mask_value] = np.nan
-        var = np.ma.masked_array(var,mask=var==self.mask_value)
         
-        #xgrid, zgrid = np.meshgrid(X_flow, Z_flow)
-        #Tgrid = griddata((X_flow, Z_flow), T, (xgrid, zgrid))
-        #ax.contourf(xgrid, zgrid, Tgrid, 10, cmap=plt.cm.bone)
-        #levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
+        #### quality control remove some very small values (spikes) ####
+        #var[(var.mask==False)&(var<1e-15)]=0
+        var[(var==self.mask_value)&(var<1e-15)] = 0
         
-        #### quality control remove some very small values
-        #pdb.set_trace()
-        var[(var.mask==False)&(var<1e-15)]=0
+        
+        #var = np.ma.masked_array(var,mask=var==self.mask_value)
+        #### python3 does not allow for masked z values in tricontourf, a way to work around:
+        triang = tri.Triangulation(X_flow, Z_flow)
+        isbad = np.equal(var, self.mask_value) 
+        mask = np.any(np.where(isbad[triang.triangles], True, False), axis=1)
+        triang.set_mask(mask)
+        
         if var.min() == 0 and var.max() == 0:
             levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
         else:
             levels = np.linspace(var.min(), var.max(), 100)
-        #pdb.set_trace()
+        
         cmap = plt.set_cmap('bone_r')
-        cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
+        #cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
+        cs = ax.tricontourf(triang, var, cmap=cmap, levels=levels)
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="3%", pad=0.05)
@@ -249,7 +250,6 @@ class W2_Contour(object):
         #ax.xaxis.grid(True)
         plt.show()
         #plt.savefig('%s\\%s_%s_%s.png'%(self.workdir, varname, str(branchID), str(timestep)))
-        #plt.savefig('example.png')
         #plt.close()
         
     
@@ -377,7 +377,8 @@ if __name__ == "__main__":
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1336_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200103_1326_tracer_test_branch5'
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', timestep=20, branchID=5, Plotuv=True, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=65, branchID=5, Plotuv=True, PlotGrid=True)
     #WC.AnimateContour('Tracer', branchID=1, days=100, PlotGrid=True)
