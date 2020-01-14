@@ -120,9 +120,7 @@ class Particle_Tracking_Module(W2_Contour):
             #### initial particle location        
             location_x_surface[:,0] = WB.X[InitialSeg-1]
             
-            #### first order Euler algorithm
-            ##   x(t+1) = x(t) + U*dt + R*sqrt(6 * Dx *dt) 
-            #### dx = dt*utem
+            #### first order Euler algorithm: x(t+1) = x(t) + U*dt + R*sqrt(6 * Dx *dt) 
             for i in range(Np):
                 for t in range(Nt-1):
                     xtem = np.abs(X_surface[t] - location_x_surface[i, t])
@@ -173,6 +171,8 @@ class Particle_Tracking_Module(W2_Contour):
                 grid_x_bottom[t] = Z_bottom[t][0]
                 
         pdb.set_trace()
+        
+        
         #### visualize particle locations
         iy = 0
         plt.rcParams.update({'font.size': 16})
@@ -184,9 +184,9 @@ class Particle_Tracking_Module(W2_Contour):
             
         ax2 = fig.add_subplot(212)
         for i in range(Np):
-            ax2.plot(location_x_surface[i], grid_x_surface-iy, 'o')
+            ax2.plot(location_x_bottom[i], grid_x_bottom-iy, 'o')
+            iy-=5
         plt.show()
-        #pdb.set_trace()
         
         
     
@@ -302,6 +302,19 @@ class Particle_Tracking_Module(W2_Contour):
             ind_surface = Zin[ind_x_tem][mask].argsort()[-2]    ## maximum (or second maximum) Z
             ind_bottom = Zin[ind_x_tem][mask].argsort()[2]    ## minimum (or second minimum) Z, note velocity at the bottom index
                                                               ## = 1 (second minimum) may have zero values, so make it 2 (third minimum)
+            
+            #### Note, there might some bugs for bottom velocity. 
+            #### If velocity is zero, the particle will not move a lot, simply move with the dispersion ~O(10 m)
+            #### But at branch 5,  U_bottom[t][12] is always 0, so particles get stagnant at ~10447 m, (X_bottom[t][12] = 10676 m)
+            #### so double check: if at this segment, the bottom velocity is zero, if 0, take one layer up
+            #### because at segment 12 (branch 5), the velocities at the three bottom layers are always zero
+            icount = 3
+            if i != Nx-1:
+                while Uin[ind_x_tem][ind_bottom] == 0:
+                    ind_bottom = Zin[ind_x_tem][mask].argsort()[icount] 
+                    icount += 1
+            
+            
             ## surface
             X_surface_tem = Xin[ind_x_tem][ind_surface]
             Z_surface_tem = Zin[ind_x_tem][ind_surface]
