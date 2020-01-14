@@ -106,7 +106,6 @@ class Particle_Tracking_Module(W2_Contour):
             
         #pdb.set_trace()
         
-        
         #### read bathymetry information
         Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
         WB = W2_Bathymetry(Bthfile)
@@ -134,9 +133,13 @@ class Particle_Tracking_Module(W2_Contour):
                         utem = U_surface[t][ind]
                         R = random.uniform(0,2) - 1     ## random number between [-1,1]
                         location_x_surface[i,t+1] = location_x_surface[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
-                    elif utem.min() > 1000:   ## there is no close grid point, water dries at this location
+                    elif xtem.min() > 1000:   ## there is no close grid point, water dries at this location
                         utem = 0
                         location_x_surface[i,t+1] = location_x_surface[i, t] + utem *dt
+                    #if t in range(236, 238):
+                    ## at these steps, water at the first several cells dries, X_surface starts at 9659, while location_x_surface is 8440. 
+                    ## so particles do not move at these time steps 
+                    #    pdb.set_trace()
             
             for t in range(Nt):
                 grid_x_surface[t] = Z_surface[t][0]
@@ -162,14 +165,14 @@ class Particle_Tracking_Module(W2_Contour):
                         utem = U_bottom[t][ind]
                         R = random.uniform(0,2) - 1     ## random number between [-1,1]
                         location_x_bottom[i,t+1] = location_x_bottom[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
-                    elif utem.min() > 1000:   ## there is no close grid point, water dries at this location
+                    elif xtem.min() > 1000:   ## there is no close grid point, water dries at this location
                         utem = 0
                         location_x_bottom[i,t+1] = location_x_bottom[i, t] + utem *dt
             
             for t in range(Nt):
                 grid_x_bottom[t] = Z_bottom[t][0]
                 
-        
+        pdb.set_trace()
         #### visualize particle locations
         iy = 0
         plt.rcParams.update({'font.size': 16})
@@ -340,5 +343,5 @@ if __name__ == "__main__":
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
     
     PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(10, 150, 15, branchID=5, transportSurface='True', transportBottom='True')
+    PTM.particle_tracking_model_1D(10, 250, 15, branchID=5, transportSurface='True', transportBottom='True')
     
