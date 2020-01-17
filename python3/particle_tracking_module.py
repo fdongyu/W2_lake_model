@@ -52,7 +52,7 @@ class Particle_Tracking_Module(W2_Contour):
         self.Readcpl()
         
         
-    def particle_tracking_model_1D(self, Np, Nt, InitialSeg, branchID, dt=1, transportSurface='True', transportBottom='True'):
+    def particle_tracking_model_1D(self, Np, Nt, InitialSeg, branchID, dt=1, transportSurface=True, transportBottom=True, travelTime=True):
         """
         particle tracking with velocity 
         Np -- number of particles
@@ -64,8 +64,8 @@ class Particle_Tracking_Module(W2_Contour):
         dt *= 24*3600.
         
         if branchID == 1:
-            X_surface, Z_surface, U_surface, \
-            X_bottom, Z_bottom, U_bottom = self.read_velocity(Nt, branchID=1)
+            self.X_surface, self.Z_surface, self.U_surface, \
+            self.X_bottom, self.Z_bottom, self.U_bottom = self.read_velocity(Nt, branchID=1)
             
         elif branchID == 5:
             X_surface1, Z_surface1, U_surface1, \
@@ -78,30 +78,30 @@ class Particle_Tracking_Module(W2_Contour):
             WB = W2_Bathymetry(Bthfile)
             pat = WB.VisBranch2(branchID=1)
             #### adding branch 5 to main branch 
-            X_surface = []
-            Z_surface = []
-            U_surface = []
+            self.X_surface = []
+            self.Z_surface = []
+            self.U_surface = []
             
-            X_bottom = []
-            Z_bottom = []
-            U_bottom = []
+            self.X_bottom = []
+            self.Z_bottom = []
+            self.U_bottom = []
             for t in range(Nt):
                 
                 ## surface
                 xind_surface = self.findNearest(WB.X[self.DHS5-2], X_surface1[t][:])
                 xtem_surface_branch1 = np.asarray(X_surface1[t][xind_surface:]) - X_surface1[t][xind_surface-1] \
                                 + X_surface5[t][-1]
-                X_surface.append( X_surface5[t] + xtem_surface_branch1.tolist() )
-                Z_surface.append( Z_surface5[t] + Z_surface1[t][xind_surface:] )
-                U_surface.append( U_surface5[t] + U_surface1[t][xind_surface:] )
+                self.X_surface.append( X_surface5[t] + xtem_surface_branch1.tolist() )
+                self.Z_surface.append( Z_surface5[t] + Z_surface1[t][xind_surface:] )
+                self.U_surface.append( U_surface5[t] + U_surface1[t][xind_surface:] )
                 
                 ## bottom
                 xind_bottom = self.findNearest(WB.X[self.DHS5-2], X_bottom1[t][:])
                 xtem_bottom_branch1 = np.asarray(X_bottom1[t][xind_bottom:]) - X_bottom1[t][xind_bottom-1] \
                                 + X_bottom5[t][-1]
-                X_bottom.append( X_bottom5[t] + xtem_bottom_branch1.tolist() )
-                Z_bottom.append( Z_bottom5[t] + Z_bottom1[t][xind_bottom:] )
-                U_bottom.append( U_bottom5[t] + U_bottom1[t][xind_bottom:] )            
+                self.X_bottom.append( X_bottom5[t] + xtem_bottom_branch1.tolist() )
+                self.Z_bottom.append( Z_bottom5[t] + Z_bottom1[t][xind_bottom:] )
+                self.U_bottom.append( U_bottom5[t] + U_bottom1[t][xind_bottom:] )            
             
             
         #pdb.set_trace()
@@ -114,80 +114,156 @@ class Particle_Tracking_Module(W2_Contour):
         if transportSurface:
             
             #### particle location array
-            location_x_surface = np.zeros([Np, Nt])   ####[Number of particles, time period]
-            grid_x_surface = np.zeros([Nt])   #### surface water level at each x grid
+            self.location_x_surface = np.zeros([Np, Nt])   ####[Number of particles, time period]
+            self.grid_x_surface = np.zeros([Nt])   #### surface water level at each x grid
             
             #### initial particle location        
-            location_x_surface[:,0] = WB.X[InitialSeg-1]
+            self.location_x_surface[:,0] = WB.X[InitialSeg-1]
             
             #### first order Euler algorithm: x(t+1) = x(t) + U*dt + R*sqrt(6 * Dx *dt) 
             for i in range(Np):
                 for t in range(Nt-1):
-                    xtem = np.abs(X_surface[t] - location_x_surface[i, t])
+                    xtem = np.abs(self.X_surface[t] - self.location_x_surface[i, t])
                     #### check if 
                     if xtem.min() < 1000:
                         #### query index
                         ind = np.argwhere(xtem==xtem.min())[0][0]
-                        utem = U_surface[t][ind]
+                        utem = self.U_surface[t][ind]
                         R = random.uniform(0,2) - 1     ## random number between [-1,1]
-                        location_x_surface[i,t+1] = location_x_surface[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
+                        self.location_x_surface[i,t+1] = self.location_x_surface[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
                     elif xtem.min() > 1000:   ## there is no close grid point, water dries at this location
                         utem = 0
-                        location_x_surface[i,t+1] = location_x_surface[i, t] + utem *dt
+                        self.location_x_surface[i,t+1] = self.location_x_surface[i, t] + utem *dt
                     #if t in range(236, 238):
                     ## at these steps, water at the first several cells dries, X_surface starts at 9659, while location_x_surface is 8440. 
                     ## so particles do not move at these time steps 
-                    #    pdb.set_trace()
+                    
             
             for t in range(Nt):
-                grid_x_surface[t] = Z_surface[t][0]
+                self.grid_x_surface[t] = self.Z_surface[t][0]
         
         
         if transportBottom:
             
             #### particle location array
-            location_x_bottom = np.zeros([Np, Nt])
-            grid_x_bottom = np.zeros([Nt])    #### bottom water level at each x grid
+            self.location_x_bottom = np.zeros([Np, Nt])
+            self.grid_x_bottom = np.zeros([Nt])    #### bottom water level at each x grid
             
             #### initial particle location
-            location_x_bottom[:,0] = WB.X[InitialSeg-1]
+            self.location_x_bottom[:,0] = WB.X[InitialSeg-1]
         
             #### first order Euler algorithm
             for i in range(Np):
                 for t in range(Nt-1):
-                    xtem = np.abs(X_bottom[t] - location_x_bottom[i, t])
+                    xtem = np.abs(self.X_bottom[t] - self.location_x_bottom[i, t])
                     #### check if 
                     if xtem.min() < 1000:
                         #### query index
                         ind = np.argwhere(xtem==xtem.min())[0][0]
-                        utem = U_bottom[t][ind]
+                        utem = self.U_bottom[t][ind]
                         R = random.uniform(0,2) - 1     ## random number between [-1,1]
-                        location_x_bottom[i,t+1] = location_x_bottom[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
+                        self.location_x_bottom[i,t+1] = self.location_x_bottom[i, t] + utem *dt + R*np.sqrt(6*self.Dx*dt)
                     elif xtem.min() > 1000:   ## there is no close grid point, water dries at this location
                         utem = 0
-                        location_x_bottom[i,t+1] = location_x_bottom[i, t] + utem *dt
+                        self.location_x_bottom[i,t+1] = self.location_x_bottom[i, t] + utem *dt
             
             for t in range(Nt):
-                grid_x_bottom[t] = Z_bottom[t][0]
+                self.grid_x_bottom[t] = self.Z_bottom[t][0]
                 
-        pdb.set_trace()
+        #pdb.set_trace()
+#        #### For testing only: visualize particle locations
+#        iy = 0
+#        plt.rcParams.update({'font.size': 16})
+#        fig = plt.figure(figsize=(14,10))
+#        ax = fig.add_subplot(211)
+#        for i in range(Np):
+#            ax.plot(self.location_x_surface[i], self.grid_x_surface+iy, 'o')
+#            iy+=5
+#            
+#        ax2 = fig.add_subplot(212)
+#        for i in range(Np):
+#            ax2.plot(self.location_x_bottom[i], self.grid_x_bottom-iy, 'o')
+#            iy-=5
+#        plt.show()
         
-        
-        #### visualize particle locations
-        iy = 0
-        plt.rcParams.update({'font.size': 16})
-        fig = plt.figure(figsize=(14,10))
-        ax = fig.add_subplot(211)
-        for i in range(Np):
-            ax.plot(location_x_surface[i], grid_x_surface+iy, 'o')
-            iy+=5
+        if travelTime:
+            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=True)
             
-        ax2 = fig.add_subplot(212)
-        for i in range(Np):
-            ax2.plot(location_x_bottom[i], grid_x_bottom-iy, 'o')
-            iy-=5
-        plt.show()
         
+        
+    def travel_time(self, Np, Nt, InitialSeg, branchID, location_x, write2shp):
+        """
+        calculate travel time based on the particle tracking
+        """
+        
+        if branchID == 1:
+            
+            #### read segment information
+            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WB = W2_Bathymetry(Bthfile)
+            pat = WB.VisBranch2(branchID)
+        
+            #### create empty array for travel time
+            Ttime = np.zeros([Np, WB.X.shape[0]])
+            
+            #### calculate travel time
+            for i in range(Np):
+                for tstep in range(Nt):
+                    location_x_tem = location_x[i, tstep]
+                        
+                    ind = self.Xsearch(location_x_tem, WB.X)        
+                    
+                    if tstep == 0:
+                        Ttime[i, InitialSeg-1:ind+1] = tstep + 1
+                        ind_tem = ind
+                    else:
+                        ind_nonzero = np.nonzero(Ttime[i,:])[0].max()  ## only add travel time to zero elements
+                        if ind > max(ind_tem, ind_nonzero):
+                            Ttime[i, max(ind_tem+1, ind_nonzero+1):ind+1] = tstep + 1
+                            print (Ttime[i,:])
+                        ind_tem = ind
+            #pdb.set_trace()
+                    
+            
+            if write2shp:
+                from myshapefile import writeShpLines_one_branch
+                
+                #### call segment class for plotting
+                Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+                WS = W2_Segmentation(Bthfile)
+                WS.VisSeg2()
+                
+                #### calculate the average among particles
+                #### be careful about this average among particles 
+                #Ttime = np.mean(Ttime, axis=0, dtype=np.int)
+                #### simply average may yield smaller travel time at the downstream end
+                #### because some particle may not travel to the last segment, which has zero travel time there
+                #### so only average among non-zero values. 
+                Ttime_avg = np.zeros([WB.X.shape[0]])
+                for i in range(WB.X.shape[0]):
+                    if i >= InitialSeg-1:
+                        Ttime_avg[i] = Ttime[:,i][np.nonzero(Ttime[:,i])].mean()
+                
+                
+                Ttime_avg = Ttime_avg[1:-1]
+                Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0]
+                
+                writeShpLines_one_branch(WS, Ttime_avg, shpname='particle_bottom_traveltime_branch1')
+            
+            
+    
+    def Xsearch(self, xx, xgrid):
+        """
+        search the index of xx in xgrid
+        note xx has to be greater than xgrid[i]
+        """
+        xtem = xx - xgrid
+        
+        xtem = xtem.tolist()
+        
+        m = min(i for i in xtem if i>=0)
+        
+        return xtem.index(m)
         
     
     def read_velocity(self, Nt, branchID=1):
@@ -308,7 +384,7 @@ class Particle_Tracking_Module(W2_Contour):
             #### But at branch 5,  U_bottom[t][12] is always 0, so particles get stagnant at ~10447 m, (X_bottom[t][12] = 10676 m)
             #### so double check: if at this segment, the bottom velocity is zero, if 0, take one layer up
             #### because at segment 12 (branch 5), the velocities at the three bottom layers are always zero
-            icount = 3
+            icount = 2
             if i != Nx-1:
                 while Uin[ind_x_tem][ind_bottom] == 0:
                     ind_bottom = Zin[ind_x_tem][mask].argsort()[icount] 
@@ -356,5 +432,5 @@ if __name__ == "__main__":
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
     
     PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(10, 250, 15, branchID=5, transportSurface='True', transportBottom='True')
+    PTM.particle_tracking_model_1D(10, 250, 15, branchID=1, transportSurface=True, transportBottom=True, travelTime=True)
     
