@@ -61,8 +61,10 @@ class Particle_Tracking_Module(W2_Contour):
         dt -- time interval, default 1 day, unit: day
         """
         
-        dt *= 24*3600.
+        dt *= 24*3600.   #### conversion from day to seconds
         
+        
+        #### read surface and bottom velocities
         if branchID == 1:
             self.X_surface, self.Z_surface, self.U_surface, \
             self.X_bottom, self.Z_bottom, self.U_bottom = self.read_velocity(Nt, branchID=1)
@@ -88,7 +90,7 @@ class Particle_Tracking_Module(W2_Contour):
             for t in range(Nt):
                 
                 ## surface
-                xind_surface = self.findNearest(WB.X[self.DHS5-2], X_surface1[t][:])
+                xind_surface = self.findNearest(WB.X[self.DHS5-1], X_surface1[t][:])
                 xtem_surface_branch1 = np.asarray(X_surface1[t][xind_surface:]) - X_surface1[t][xind_surface-1] \
                                 + X_surface5[t][-1]
                 self.X_surface.append( X_surface5[t] + xtem_surface_branch1.tolist() )
@@ -96,7 +98,7 @@ class Particle_Tracking_Module(W2_Contour):
                 self.U_surface.append( U_surface5[t] + U_surface1[t][xind_surface:] )
                 
                 ## bottom
-                xind_bottom = self.findNearest(WB.X[self.DHS5-2], X_bottom1[t][:])
+                xind_bottom = self.findNearest(WB.X[self.DHS5-1], X_bottom1[t][:])
                 xtem_bottom_branch1 = np.asarray(X_bottom1[t][xind_bottom:]) - X_bottom1[t][xind_bottom-1] \
                                 + X_bottom5[t][-1]
                 self.X_bottom.append( X_bottom5[t] + xtem_bottom_branch1.tolist() )
@@ -111,6 +113,8 @@ class Particle_Tracking_Module(W2_Contour):
         WB = W2_Bathymetry(Bthfile)
         pat = WB.VisBranch2(branchID)
         
+        
+        #### particle tracking calculation
         if transportSurface:
             
             #### particle location array
@@ -248,7 +252,93 @@ class Particle_Tracking_Module(W2_Contour):
                 Ttime_avg = Ttime_avg[1:-1]
                 Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0]
                 
-                writeShpLines_one_branch(WS, Ttime_avg, shpname='particle_bottom_traveltime_branch1')
+                writeShpLines_one_branch(WS, Ttime_avg, shpname='particle_surface_traveltime_branch1')
+                
+        
+        if branchID == 5:
+            """
+            Under development
+            """
+            #### read segment information for branch 5
+            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WB = W2_Bathymetry(Bthfile)
+            pat = WB.VisBranch2(branchID)
+            
+            x_branch5 = WB.X   #### segment x coordinates for branch 5
+            
+            #### read segment information for branch 1
+            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WB = W2_Bathymetry(Bthfile)
+            pat = WB.VisBranch2(branchID=1)
+            
+            x_branch1 = WB.X
+            
+            #### create empty array for travel time
+            #### should not include the inactive cell at the end of branch5 when combining
+            x_combined = x_branch5.tolist()[0:-1] + \
+                        (x_branch1[self.DHS5-1:] - x_branch1[self.DHS5-1] + x_branch5[-2]).tolist()
+            x_combined = np.asarray(x_combined)
+            Ttime = np.zeros([Np, x_combined.shape[0]])
+            
+            
+            #### calculate travel time
+            for i in range(Np):
+                for tstep in range(Nt):
+                    location_x_tem = location_x[i, tstep]
+                        
+                    ind = self.Xsearch(location_x_tem, x_combined)        
+                    
+                    if tstep == 0:
+                        Ttime[i, InitialSeg-1:ind+1] = tstep + 1
+                        ind_tem = ind
+                    else:
+                        ind_nonzero = np.nonzero(Ttime[i,:])[0].max()  ## only add travel time to zero elements
+                        if ind > max(ind_tem, ind_nonzero):
+                            Ttime[i, max(ind_tem+1, ind_nonzero+1):ind+1] = tstep + 1
+                            print (Ttime[i,:])
+                        ind_tem = ind
+            
+            #### separate the travel time to branch 1 segments and branch 5 segments 
+            Ttime5 = Ttime[:, 0: len(x_branch5[0:-1])+1]
+            
+            Ttime1 = np.zeros([Np, len(x_branch1)])
+            Ttime1[:, self.DHS5:] = Ttime[:, len(x_branch5[0:-1])+1:]
+            
+            if write2shp:
+                from myshapefile import writeShpLines
+                
+                #### call segment class for plotting
+                Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+                WS = W2_Segmentation(Bthfile)
+                WS.VisSeg2()
+                
+                #### calculate the average among particles
+                Ttime_avg1 = np.zeros([Ttime1.shape[1]])
+                for i in range(Ttime1.shape[1]):
+                    if i >= self.DHS5 and len(Ttime1[:,i].nonzero()[0]) != 0:
+                        Ttime_avg1[i] = Ttime1[:,i][np.nonzero(Ttime1[:,i])].mean()
+                        
+                Ttime_avg5 = np.zeros([Ttime5.shape[1]])
+                for i in range(Ttime5.shape[1]):
+                    if i >= InitialSeg-1:
+                        Ttime_avg5[i] = Ttime5[:,i][np.nonzero(Ttime5[:,i])].mean()
+                
+                
+                
+                Ttime_avg1 = Ttime_avg1[1:-1]
+                Ttime_avg5 = Ttime_avg5[1:-1]
+                
+                Ttimes_avg = [Ttime_avg1, Ttime_avg5]
+                MaxTime = Ttimes_avg[0][-1]
+                for Ttime in Ttimes_avg:
+                    Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
+                
+                
+                writeShpLines(WS, Ttimes_avg, shpname='particle_bottom_traveltime_branch5')
+                
+                
+                
+            
             
             
     
@@ -432,5 +522,5 @@ if __name__ == "__main__":
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
     
     PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(10, 250, 15, branchID=1, transportSurface=True, transportBottom=True, travelTime=True)
-    
+    #PTM.particle_tracking_model_1D(10, 250, 15, branchID=1, transportSurface=True, transportBottom=True, travelTime=True)
+    PTM.particle_tracking_model_1D(10, 250, 15, branchID=5, transportSurface=True, transportBottom=True, travelTime=True)
