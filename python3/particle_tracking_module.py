@@ -190,12 +190,14 @@ class Particle_Tracking_Module(W2_Contour):
 #            iy-=5
 #        plt.show()
         
-        if travelTime:
-            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=True)
+        if travelTime and transportSurface:
+            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_surface, write2shp=False, density=0, txtfile=r'txt\particle_surface_branch%s.txt'%str(branchID))
             
+        if travelTime and transportBottom:
+            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=False, density=1, txtfile=r'txt\particle_bottom_branch%s.txt'%str(branchID))
         
         
-    def travel_time(self, Np, Nt, InitialSeg, branchID, location_x, write2shp):
+    def travel_time(self, Np, Nt, InitialSeg, branchID, location_x, write2shp, density, txtfile):
         """
         calculate travel time based on the particle tracking
         """
@@ -227,30 +229,33 @@ class Particle_Tracking_Module(W2_Contour):
                             print (Ttime[i,:])
                         ind_tem = ind
             #pdb.set_trace()
-                    
+            
+            
+            #### calculate the average among particles
+            #### be careful about this average among particles 
+            #Ttime = np.mean(Ttime, axis=0, dtype=np.int)
+            #### simply average may yield smaller travel time at the downstream end
+            #### because some particle may not travel to the last segment, which has zero travel time there
+            #### so only average among non-zero values. 
+            Ttime_avg = np.zeros([WB.X.shape[0]])
+            for i in range(WB.X.shape[0]):
+                if i >= InitialSeg-1:
+                    Ttime_avg[i] = Ttime[:,i][np.nonzero(Ttime[:,i])].mean()
+            Ttime_avg = Ttime_avg[1:-1]
+            Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0] 
+            
+            
+            #### call segment class for segment information
+            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WS = W2_Segmentation(Bthfile)
+            WS.VisSeg2()
+            
+            #### save travel time data to txt file ####
+            self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, txtfile)
+            
             
             if write2shp:
                 from myshapefile import writeShpLines_one_branch
-                
-                #### call segment class for plotting
-                Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-                WS = W2_Segmentation(Bthfile)
-                WS.VisSeg2()
-                
-                #### calculate the average among particles
-                #### be careful about this average among particles 
-                #Ttime = np.mean(Ttime, axis=0, dtype=np.int)
-                #### simply average may yield smaller travel time at the downstream end
-                #### because some particle may not travel to the last segment, which has zero travel time there
-                #### so only average among non-zero values. 
-                Ttime_avg = np.zeros([WB.X.shape[0]])
-                for i in range(WB.X.shape[0]):
-                    if i >= InitialSeg-1:
-                        Ttime_avg[i] = Ttime[:,i][np.nonzero(Ttime[:,i])].mean()
-                
-                
-                Ttime_avg = Ttime_avg[1:-1]
-                Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0]
                 
                 writeShpLines_one_branch(WS, Ttime_avg, shpname='particle_surface_traveltime_branch1')
                 
@@ -304,41 +309,83 @@ class Particle_Tracking_Module(W2_Contour):
             Ttime1 = np.zeros([Np, len(x_branch1)])
             Ttime1[:, self.DHS5:] = Ttime[:, len(x_branch5[0:-1])+1:]
             
+            
+            #### calculate the average among particles
+            Ttime_avg1 = np.zeros([Ttime1.shape[1]])
+            for i in range(Ttime1.shape[1]):
+                if i >= self.DHS5 and len(Ttime1[:,i].nonzero()[0]) != 0:
+                    Ttime_avg1[i] = Ttime1[:,i][np.nonzero(Ttime1[:,i])].mean()
+                        
+            Ttime_avg5 = np.zeros([Ttime5.shape[1]])
+            for i in range(Ttime5.shape[1]):
+                if i >= InitialSeg-1:
+                    Ttime_avg5[i] = Ttime5[:,i][np.nonzero(Ttime5[:,i])].mean()
+                           
+            Ttime_avg1 = Ttime_avg1[1:-1]
+            Ttime_avg5 = Ttime_avg5[1:-1]
+            
+            Ttimes_avg = [Ttime_avg1, Ttime_avg5]
+            MaxTime = Ttimes_avg[0][-1]
+            for Ttime in Ttimes_avg:
+                Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
+            
+            #### call segment class for segment information
+            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+            WS = W2_Segmentation(Bthfile)
+            WS.VisSeg2()
+            
+            
+            #### save travel time data to txt file ####
+            self.savetxt_Traveltime_branch5(WS, Ttimes_avg, txtfile, density)
+            
+            
             if write2shp:
                 from myshapefile import writeShpLines
-                
-                #### call segment class for plotting
-                Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-                WS = W2_Segmentation(Bthfile)
-                WS.VisSeg2()
-                
-                #### calculate the average among particles
-                Ttime_avg1 = np.zeros([Ttime1.shape[1]])
-                for i in range(Ttime1.shape[1]):
-                    if i >= self.DHS5 and len(Ttime1[:,i].nonzero()[0]) != 0:
-                        Ttime_avg1[i] = Ttime1[:,i][np.nonzero(Ttime1[:,i])].mean()
-                        
-                Ttime_avg5 = np.zeros([Ttime5.shape[1]])
-                for i in range(Ttime5.shape[1]):
-                    if i >= InitialSeg-1:
-                        Ttime_avg5[i] = Ttime5[:,i][np.nonzero(Ttime5[:,i])].mean()
-                
-                
-                
-                Ttime_avg1 = Ttime_avg1[1:-1]
-                Ttime_avg5 = Ttime_avg5[1:-1]
-                
-                Ttimes_avg = [Ttime_avg1, Ttime_avg5]
-                MaxTime = Ttimes_avg[0][-1]
-                for Ttime in Ttimes_avg:
-                    Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
-                
-                
+                                              
                 writeShpLines(WS, Ttimes_avg, shpname='particle_bottom_traveltime_branch5')
                 
                 
-                
-            
+    
+    def savetxt_Traveltime_branch1(self, WS, Ttime, density, txtfile):
+        """
+        save travel time to a txt file
+        output array: 
+            branchID, segID, travel time, density, release_arm
+        density=1 heavy
+        density=0 light
+        release_arm=1 East
+        """
+        
+        outarray = np.vstack((np.ones_like(Ttime), WS.segs1, Ttime, \
+                              np.ones_like(Ttime)*density, np.ones_like(Ttime))).T
+        np.savetxt(txtfile, outarray, fmt='%d')
+        
+        
+
+    def savetxt_Traveltime_branch5(self, WS, Ttimes, txtfile, density):
+        """
+        under development
+        harded coded branch ID
+        output array: 
+            branchID, segID, travel time, density, release_arm
+        density=1 heavy
+        density=0 light
+        release_arm=5 West
+        """
+        
+        Ttime1 = Ttimes[0]    ## travel times at branch 1
+        Ttime5 = Ttimes[1]    ## travel times at branch 5
+        
+        outarray1 = np.vstack((np.ones_like(Ttime1), WS.segs1, Ttime1, \
+                              np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5))
+        outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5, Ttime5, \
+                              np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5))
+        
+        outarray = np.hstack((outarray5, outarray1)).T
+        
+        np.savetxt(txtfile, outarray, fmt='%d')
+        
+        #pdb.set_trace()
             
             
     
@@ -519,7 +566,8 @@ class Particle_Tracking_Module(W2_Contour):
         
 if __name__ == "__main__": 
     
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
     
     PTM = Particle_Tracking_Module(wdir)
     #PTM.particle_tracking_model_1D(10, 250, 15, branchID=1, transportSurface=True, transportBottom=True, travelTime=True)
