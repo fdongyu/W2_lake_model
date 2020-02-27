@@ -32,7 +32,10 @@ class Particle_Tracking_Module(W2_Contour):
     #branch5
     DHS5 = 43
     
-    Dx = 1e-5  ##  longitudinal dispersion coefficient
+    #Dx = 1e-5  ##  longitudinal dispersion coefficient
+    Dx = 1e-5*24*3600
+    
+    flows = {'high': 3, 'medium': 2, 'low': 1} 
     
     def __init__(self, workdir, **kwargs):
         
@@ -52,7 +55,7 @@ class Particle_Tracking_Module(W2_Contour):
         self.Readcpl()
         
         
-    def particle_tracking_model_1D(self, Np, Nt, InitialSeg, branchID, dt=1, transportSurface=True, transportBottom=True, travelTime=True):
+    def particle_tracking_model_1D(self, Np, Nt, InitialSeg, starttime, branchID, flow_condition='high', dt=1, transportSurface=True, transportBottom=True, travelTime=True):
         """
         particle tracking with velocity 
         Np -- number of particles
@@ -62,6 +65,9 @@ class Particle_Tracking_Module(W2_Contour):
         """
         
         dt *= 24*3600.   #### conversion from day to seconds
+        
+        self.starttime = starttime
+        self.flow_condition = flow_condition
         
         
         #### read surface and bottom velocities
@@ -106,8 +112,6 @@ class Particle_Tracking_Module(W2_Contour):
                 self.U_bottom.append( U_bottom5[t] + U_bottom1[t][xind_bottom:] )            
             
             
-        #pdb.set_trace()
-        
         #### read bathymetry information
         Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
         WB = W2_Bathymetry(Bthfile)
@@ -142,7 +146,7 @@ class Particle_Tracking_Module(W2_Contour):
                     ## at these steps, water at the first several cells dries, X_surface starts at 9659, while location_x_surface is 8440. 
                     ## so particles do not move at these time steps 
                     
-            
+            #pdb.set_trace()
             for t in range(Nt):
                 self.grid_x_surface[t] = self.Z_surface[t][0]
         
@@ -191,10 +195,10 @@ class Particle_Tracking_Module(W2_Contour):
 #        plt.show()
         
         if travelTime and transportSurface:
-            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_surface, write2shp=False, density=0, txtfile=r'txt\particle_surface_branch%s.txt'%str(branchID))
+            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_surface, write2shp=False, density=0, txtfile=r'txt\particle_surface_branch%s_%s.txt'%(str(branchID), flow_condition))
             
         if travelTime and transportBottom:
-            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=False, density=1, txtfile=r'txt\particle_bottom_branch%s.txt'%str(branchID))
+            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=False, density=1, txtfile=r'txt\particle_bottom_branch%s_%s.txt'%(str(branchID), flow_condition))
         
         
     def travel_time(self, Np, Nt, InitialSeg, branchID, location_x, write2shp, density, txtfile):
@@ -228,7 +232,7 @@ class Particle_Tracking_Module(W2_Contour):
                             Ttime[i, max(ind_tem+1, ind_nonzero+1):ind+1] = tstep + 1
                             print (Ttime[i,:])
                         ind_tem = ind
-            #pdb.set_trace()
+            
             
             
             #### calculate the average among particles
@@ -240,7 +244,8 @@ class Particle_Tracking_Module(W2_Contour):
             Ttime_avg = np.zeros([WB.X.shape[0]])
             for i in range(WB.X.shape[0]):
                 if i >= InitialSeg-1:
-                    Ttime_avg[i] = Ttime[:,i][np.nonzero(Ttime[:,i])].mean()
+                    Ttime_avg[i] = np.median(Ttime[:,i][np.nonzero(Ttime[:,i])])
+            #pdb.set_trace()
             Ttime_avg = Ttime_avg[1:-1]
             Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0] 
             
@@ -251,7 +256,8 @@ class Particle_Tracking_Module(W2_Contour):
             WS.VisSeg2()
             
             #### save travel time data to txt file ####
-            self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, txtfile)
+            #pdb.set_trace()
+            self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], txtfile)
             
             
             if write2shp:
@@ -309,17 +315,17 @@ class Particle_Tracking_Module(W2_Contour):
             Ttime1 = np.zeros([Np, len(x_branch1)])
             Ttime1[:, self.DHS5:] = Ttime[:, len(x_branch5[0:-1])+1:]
             
-            
+            #pdb.set_trace()
             #### calculate the average among particles
             Ttime_avg1 = np.zeros([Ttime1.shape[1]])
             for i in range(Ttime1.shape[1]):
                 if i >= self.DHS5 and len(Ttime1[:,i].nonzero()[0]) != 0:
-                    Ttime_avg1[i] = Ttime1[:,i][np.nonzero(Ttime1[:,i])].mean()
-                        
+                    Ttime_avg1[i] = np.median(Ttime1[:,i][np.nonzero(Ttime1[:,i])])
+            
             Ttime_avg5 = np.zeros([Ttime5.shape[1]])
             for i in range(Ttime5.shape[1]):
                 if i >= InitialSeg-1:
-                    Ttime_avg5[i] = Ttime5[:,i][np.nonzero(Ttime5[:,i])].mean()
+                    Ttime_avg5[i] = np.median(Ttime5[:,i][np.nonzero(Ttime5[:,i])])
                            
             Ttime_avg1 = Ttime_avg1[1:-1]
             Ttime_avg5 = Ttime_avg5[1:-1]
@@ -336,7 +342,7 @@ class Particle_Tracking_Module(W2_Contour):
             
             
             #### save travel time data to txt file ####
-            self.savetxt_Traveltime_branch5(WS, Ttimes_avg, txtfile, density)
+            self.savetxt_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], txtfile)
             
             
             if write2shp:
@@ -346,40 +352,47 @@ class Particle_Tracking_Module(W2_Contour):
                 
                 
     
-    def savetxt_Traveltime_branch1(self, WS, Ttime, density, txtfile):
+    def savetxt_Traveltime_branch1(self, WS, Ttime, density, flow_index, txtfile):
         """
         save travel time to a txt file
         output array: 
-            branchID, segID, travel time, density, release_arm
+            branchID, segID, travel time, density, release_arm, solubility, flow_condition
         density=1 heavy
         density=0 light
         release_arm=1 East
+        flow_index - high:3, medium:2, low:1
         """
         
         outarray = np.vstack((np.ones_like(Ttime), WS.segs1, Ttime, \
-                              np.ones_like(Ttime)*density, np.ones_like(Ttime))).T
+                              np.ones_like(Ttime)*density, np.ones_like(Ttime), \
+                              np.zeros_like(Ttime), np.ones_like(Ttime)*flow_index)).T
         np.savetxt(txtfile, outarray, fmt='%d')
         
         
 
-    def savetxt_Traveltime_branch5(self, WS, Ttimes, txtfile, density):
+    def savetxt_Traveltime_branch5(self, WS, Ttimes, density, flow_index, txtfile):
         """
-        under development
-        harded coded branch ID
         output array: 
-            branchID, segID, travel time, density, release_arm
+            branchID, segID, travel time, density, release_arm, solubility, flow_condition
         density=1 heavy
         density=0 light
         release_arm=5 West
+        flow_index - high:3, medium:2, low:1
         """
+        
+        #pdb.set_trace()
         
         Ttime1 = Ttimes[0]    ## travel times at branch 1
         Ttime5 = Ttimes[1]    ## travel times at branch 5
         
         outarray1 = np.vstack((np.ones_like(Ttime1), WS.segs1, Ttime1, \
-                              np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5))
-        outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5, Ttime5, \
-                              np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5))
+                              np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5, \
+                              np.zeros_like(Ttime1), np.ones_like(Ttime1)*flow_index))
+        
+        #### important !! reverse WS.segs5, from 86 to 121 
+        outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5[::-1], Ttime5, \
+                              np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5, \
+                              np.zeros_like(Ttime5), np.ones_like(Ttime5)*flow_index))
         
         outarray = np.hstack((outarray5, outarray1)).T
         
@@ -422,7 +435,7 @@ class Particle_Tracking_Module(W2_Contour):
         U_bottom = []
         
         
-        for tstep in range(Nt):
+        for tstep in range(self.starttime, self.starttime+Nt):
             
             print ('Time step = %s \n'%str(tstep))
             ## search for index for each branch 
@@ -512,7 +525,7 @@ class Particle_Tracking_Module(W2_Contour):
                
             #### find surface and bottom index
             mask = np.logical_or(Uin[ind_x_tem]!=self.mask_value, Win[ind_x_tem]!=self.mask_value) ## find invalid value  
-            ind_surface = Zin[ind_x_tem][mask].argsort()[-2]    ## maximum (or second maximum) Z
+            ind_surface = Zin[ind_x_tem][mask].argsort()[-3]    ## maximum (or second maximum) Z
             ind_bottom = Zin[ind_x_tem][mask].argsort()[2]    ## minimum (or second minimum) Z, note velocity at the bottom index
                                                               ## = 1 (second minimum) may have zero values, so make it 2 (third minimum)
             
@@ -567,8 +580,74 @@ class Particle_Tracking_Module(W2_Contour):
 if __name__ == "__main__": 
     
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
-    
-    PTM = Particle_Tracking_Module(wdir)
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
+    #PTM = Particle_Tracking_Module(wdir)
     #PTM.particle_tracking_model_1D(10, 250, 15, branchID=1, transportSurface=True, transportBottom=True, travelTime=True)
-    PTM.particle_tracking_model_1D(10, 250, 15, branchID=5, transportSurface=True, transportBottom=True, travelTime=True)
+    #PTM.particle_tracking_model_1D(10, 250, 15, branchID=5, transportSurface=True, transportBottom=True, travelTime=True)
+    
+    #### branch 1
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(50, 350, 20, starttime=385, branchID=1, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(10, 400, 17, starttime=725, branchID=1, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 19, starttime=1085, branchID=1, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    
+    #### branch 5
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(80, 350, 18, starttime=385, branchID=5, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(80, 400, 22, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(200, 350, 22, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    
+    #### branch 1
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 18, starttime=385, branchID=1, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 17, starttime=725, branchID=1, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 18, starttime=1085, branchID=1, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    
+    #### branch 5
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=385, branchID=5, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## low
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    PTM = Particle_Tracking_Module(wdir)
+    PTM.particle_tracking_model_1D(100, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
