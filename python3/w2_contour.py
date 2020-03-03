@@ -7,6 +7,7 @@ Created on Tue Nov 12 16:15:42 2019
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import matplotlib.tri as tri
 
 import pdb
 
@@ -117,7 +118,7 @@ class W2_Contour(object):
         self.var_output = {}
         self.var_output.update({'TDS':{'value': TDS,'limits':[140,200], 'long_name': 'Total dissolved solids'}})
         self.var_output.update({'Tracer':{'value': tracer,'limits':[0,2], 'long_name': 'Conservative tracer'}})
-        self.var_output.update({'T':{'value': T,'limits':[0,35], 'long_name': 'Water temperature (C)'}})
+        self.var_output.update({'T':{'value': T,'limits':[10,35], 'long_name': 'Water temperature (C)'}})
         
         #pdb.set_trace()
         
@@ -129,7 +130,6 @@ class W2_Contour(object):
         e.g. 'U', 'W', 'Tracer'
         The python dictionary for variables can be found in vardict.py
         """
-        import matplotlib.tri as tri
         
         self.Readcpl()
         
@@ -222,9 +222,13 @@ class W2_Contour(object):
         isbad = np.equal(var, self.mask_value) 
         mask = np.any(np.where(isbad[triang.triangles], True, False), axis=1)
         triang.set_mask(mask)
-        
+        #pdb.set_trace()
         if var.min() == 0 and var.max() == 0:
             levels = np.linspace(self.var_output[varname]['limits'][0], self.var_output[varname]['limits'][1], 100)
+        elif varname == 'T':
+            #levels = np.linspace(23, 27, 100)  ## low WSE
+            #levels = np.linspace(16, 21, 100)  ## high WSE
+            levels = np.linspace(12, 17, 100)  ## medium WSE
         else:
             levels = np.linspace(var.min(), var.max(), 100)
         
@@ -237,7 +241,8 @@ class W2_Contour(object):
         cb = fig.colorbar(cs, cax=cax, orientation='vertical')
         cb.ax.tick_params(labelsize=12)
         cb.ax.yaxis.offsetText.set_fontsize(12)
-        cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
+        #cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
+        cb.set_label('Concentration (mg/L)', fontsize=14)
             
             
         timestr = datetime.strftime(self.runtimes[timestep],'%Y-%m-%d')
@@ -253,7 +258,7 @@ class W2_Contour(object):
         #plt.close()
         
     
-    def AnimateContour(self, varname='Tracer', branchID=1, days=100, PlotGrid=False):
+    def AnimateContour(self, varname='Tracer', timestep=0, branchID=1, days=100, PlotGrid=False):
         """
         create animation 
         """
@@ -281,6 +286,7 @@ class W2_Contour(object):
         cax = divider.append_axes("right", size="3%", pad=0.05)
         
         def animate(ii):
+            ii += timestep
             ax.clear()
             ## search for index for each branch 
             ## algorithm find the distance between two elements in self.X_flow that are large, 
@@ -333,17 +339,27 @@ class W2_Contour(object):
             
             var = self.var_output[varname]['value'][ii][ind0:ind1+1]
             var = np.asarray(var)
-            var = np.ma.masked_array(var,mask=var==self.mask_value)
+            
+            #### quality control remove some very small values (spikes) ####
+            var[(var==self.mask_value)&(var<1e-15)] = 0
+            
+            #var = np.ma.masked_array(var,mask=var==self.mask_value)
+            triang = tri.Triangulation(X_flow, Z_flow)
+            isbad = np.equal(var, self.mask_value) 
+            mask = np.any(np.where(isbad[triang.triangles], True, False), axis=1)
+            triang.set_mask(mask)
+            
             levels = np.linspace(var.min(), var.max(), 100)
             cmap = plt.set_cmap('bone_r')
-            cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
+            #cs = ax.tricontourf(X_flow, Z_flow, var, cmap=cmap, levels=levels)
+            cs = ax.tricontourf(triang, var, cmap=cmap, levels=levels)
             
         
             cb = fig.colorbar(cs, cax=cax, orientation='vertical')
             cb.ax.tick_params(labelsize=12)
             cb.ax.yaxis.offsetText.set_fontsize(12)
-            cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
-            
+            #cb.set_label('%s'%self.var_output[varname]['long_name'], fontsize=14)
+            cb.set_label('Concentration (mg/L)', fontsize=14)
             
             timestr = datetime.strftime(self.runtimes[ii],'%Y-%m-%d')
             ax.title.set_text('Time: %s'%timestr)
@@ -378,7 +394,25 @@ if __name__ == "__main__":
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191127_1631_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191202_1100_tracer_test'
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20191213_1533_tracer_test'
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200103_1326_tracer_test_branch5'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200103_1326_tracer_test_branch5'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200211_1013_tracer_test_branch1'
+    
+    #### flow rate
+    #### branch 1
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200221_0930_tracer_high_branch1'  ## timestep=385
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'   ## timestep=725
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200226_1129_tracer_low_branch1'  ## timestep=1085
+    
+    #### branch 5
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200226_1142_tracer_high_branch5'  ## timestep=385
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200226_1504_tracer_medium_branch5'  ## timestep=725
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200227_1109_tracer_low_branch5'  ## timestep=1085
+    
+    #### water level
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200302_1649_tracer_low_WSE_branch1'  ## timestep=253
+    
+    
     WC = W2_Contour(wdir)
-    WC.VisContour('Tracer', timestep=65, branchID=5, Plotuv=True, PlotGrid=True)
-    #WC.AnimateContour('Tracer', branchID=1, days=100, PlotGrid=True)
+    #WC.VisContour('Tracer', timestep=253, branchID=1, Plotuv=True, PlotGrid=True)
+    #WC.VisContour('T', timestep=825, branchID=5, Plotuv=True, PlotGrid=True)
+    WC.AnimateContour(varname='Tracer', timestep=253, branchID=1, days=300, PlotGrid=True)
