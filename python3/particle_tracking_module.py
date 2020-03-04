@@ -16,6 +16,7 @@ import random
 from w2_contour import W2_Contour
 from bathymetry import W2_Bathymetry
 from segmentation import W2_Segmentation
+from w2_fileIO import save_excel_Traveltime_branch1, save_excel_Traveltime_branch5
 
 import pdb
 
@@ -93,6 +94,7 @@ class Particle_Tracking_Module(W2_Contour):
             self.X_bottom = []
             self.Z_bottom = []
             self.U_bottom = []
+            
             for t in range(Nt):
                 
                 ## surface
@@ -195,13 +197,13 @@ class Particle_Tracking_Module(W2_Contour):
 #        plt.show()
         
         if travelTime and transportSurface:
-            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_surface, write2shp=False, density=0, txtfile=r'txt\particle_surface_branch%s_%s.txt'%(str(branchID), flow_condition))
+            self.travel_time(Np, Nt, InitialSeg, starttime, branchID, self.location_x_surface, write2shp=False, density=0, excelfile=r'excel\particle_surface_branch%s_%s.xlsx'%(str(branchID), flow_condition))
             
         if travelTime and transportBottom:
-            self.travel_time(Np, Nt, InitialSeg, branchID, self.location_x_bottom, write2shp=False, density=1, txtfile=r'txt\particle_bottom_branch%s_%s.txt'%(str(branchID), flow_condition))
+            self.travel_time(Np, Nt, InitialSeg, starttime, branchID, self.location_x_bottom, write2shp=False, density=1, excelfile=r'excel\particle_bottom_branch%s_%s.xlsx'%(str(branchID), flow_condition))
         
         
-    def travel_time(self, Np, Nt, InitialSeg, branchID, location_x, write2shp, density, txtfile):
+    def travel_time(self, Np, Nt, InitialSeg, starttime, branchID, location_x, write2shp, density, excelfile):
         """
         calculate travel time based on the particle tracking
         """
@@ -245,8 +247,15 @@ class Particle_Tracking_Module(W2_Contour):
             for i in range(WB.X.shape[0]):
                 if i >= InitialSeg-1:
                     Ttime_avg[i] = np.median(Ttime[:,i][np.nonzero(Ttime[:,i])])
+            
             #pdb.set_trace()
             Ttime_avg = Ttime_avg[1:-1]
+            
+            
+            ## calculate concentrate/water_level based on the travel time 
+            concentrate, water_level = self.Concentrate_branch1(Nt, starttime, Ttime_avg)
+            
+            
             Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0] 
             
             
@@ -256,8 +265,9 @@ class Particle_Tracking_Module(W2_Contour):
             WS.VisSeg2()
             
             #### save travel time data to txt file ####
-            #pdb.set_trace()
-            self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], txtfile)
+            #self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], txtfile)
+            save_excel_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], \
+                                               concentrate, water_level,excelfile)
             
             
             if write2shp:
@@ -326,11 +336,17 @@ class Particle_Tracking_Module(W2_Contour):
             for i in range(Ttime5.shape[1]):
                 if i >= InitialSeg-1:
                     Ttime_avg5[i] = np.median(Ttime5[:,i][np.nonzero(Ttime5[:,i])])
-                           
+                                   
             Ttime_avg1 = Ttime_avg1[1:-1]
             Ttime_avg5 = Ttime_avg5[1:-1]
             
             Ttimes_avg = [Ttime_avg1, Ttime_avg5]
+            
+            
+            ## calculate concentrate/water level based on the travel time
+            concentrates, water_levels = self.Concentrate_branch5(Nt, starttime, Ttimes_avg)
+            
+            
             MaxTime = Ttimes_avg[0][-1]
             for Ttime in Ttimes_avg:
                 Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
@@ -342,64 +358,144 @@ class Particle_Tracking_Module(W2_Contour):
             
             
             #### save travel time data to txt file ####
-            self.savetxt_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], txtfile)
+            #self.savetxt_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], txtfile)
+            save_excel_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], \
+                                          concentrates, water_levels, excelfile)
             
             
             if write2shp:
                 from myshapefile import writeShpLines
                                               
                 writeShpLines(WS, Ttimes_avg, shpname='particle_bottom_traveltime_branch5')
-                
-                
+           
     
-    def savetxt_Traveltime_branch1(self, WS, Ttime, density, flow_index, txtfile):
+    def Concentrate_branch1(self, Nt, starttime, Ttime):
         """
-        save travel time to a txt file
-        output array: 
-            branchID, segID, travel time, density, release_arm, solubility, flow_condition
-        density=1 heavy
-        density=0 light
-        release_arm=1 East
-        flow_index - high:3, medium:2, low:1
+        calculate the concentrate for spill initiated at branch 5
         """
         
-        outarray = np.vstack((np.ones_like(Ttime), WS.segs1, Ttime, \
-                              np.ones_like(Ttime)*density, np.ones_like(Ttime), \
-                              np.zeros_like(Ttime), np.ones_like(Ttime)*flow_index)).T
-        np.savetxt(txtfile, outarray, fmt='%d')
+        return self.Concentrate(starttime, starttime+Nt, Ttime, branchID=1)  ## remove inactive segments
+    
+    
+    
+    def Concentrate_branch5(self, Nt, starttime, Ttimes):
+        """
+        calculate the concentrate for spill initiated at branch 5
+        """
         
+        concentrate1, water_level1 = self.Concentrate(starttime, starttime+Nt, Ttimes[0], branchID=1)
         
+        concentrate5, water_level5 = self.Concentrate(starttime, starttime+Nt, Ttimes[1], branchID=5)
+        
+        return [concentrate1, concentrate5], [water_level1, water_level5]
+    
+    
+    
+    def Concentrate(self, starttime, endtime, Ttime, branchID, water_level=True):
+        """
+        calculate the concentrate at each segment 
+        if water_level is True, save the water level data too
+        """
+        
+        #### read bathymetry information
+        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+        WB = W2_Bathymetry(Bthfile)
+        pat = WB.VisBranch2(branchID)
 
-    def savetxt_Traveltime_branch5(self, WS, Ttimes, density, flow_index, txtfile):
-        """
-        output array: 
-            branchID, segID, travel time, density, release_arm, solubility, flow_condition
-        density=1 heavy
-        density=0 light
-        release_arm=5 West
-        flow_index - high:3, medium:2, low:1
-        """
+        ## from Ttime, find the segment index and travel time (time step) info for each  
+        concentrate = np.zeros_like(WB.X)   ## seg ID from 1 to 46 for branch 1
         
-        #pdb.set_trace()
+        elevation = np.zeros_like(WB.X)
         
-        Ttime1 = Ttimes[0]    ## travel times at branch 1
-        Ttime5 = Ttimes[1]    ## travel times at branch 5
-        
-        outarray1 = np.vstack((np.ones_like(Ttime1), WS.segs1, Ttime1, \
-                              np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5, \
-                              np.zeros_like(Ttime1), np.ones_like(Ttime1)*flow_index))
-        
-        #### important !! reverse WS.segs5, from 86 to 121 
-        outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5[::-1], Ttime5, \
-                              np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5, \
-                              np.zeros_like(Ttime5), np.ones_like(Ttime5)*flow_index))
-        
-        outarray = np.hstack((outarray5, outarray1)).T
-        
-        np.savetxt(txtfile, outarray, fmt='%d')
-        
-        #pdb.set_trace()
+        for ii, tt in enumerate(Ttime):
+            tt = int(tt)
+            if tt != 0:
+                tt += starttime
+                seg_id = ii + 2
+                print ('Calculate concentration for time step = %s, segment = %d\n'%(str(tt), seg_id))
+                
+                ## read grid info
+                dist = np.diff(self.X_flow[tt])
+                inds = np.where(dist>1200)[0]
+                
+                if branchID == 1:
+                    ind0 = 0
+                    ind1 = inds[0]
+                elif branchID == 5:
+                    ind0 = inds[3]+1
+                    ind1 = len(self.X_flow[tt]) - 1   ## -1 remove the array size mismatch issue
+                                 
+                X_flow = self.X_flow[tt][ind0:ind1+1]
+                Z_flow = self.Z_flow[tt][ind0:ind1+1]
+                X_flow = np.asarray(X_flow)
+                Z_flow = np.asarray(Z_flow)
+                
+                ## align coordinates with the grid
+                dx =  WB.X.max() - X_flow.max()
+                X_flow += dx
+         
             
+                ## no concentrate data for particle tracking, concentration is zero instead
+#                ## read tracer data
+#                vartem = np.asarray( self.var_output['Tracer']['value'][tt][ind0:ind1+1] )
+#                
+#                #### quality control if X_flow, vartem not in the same shape, resize
+#                if X_flow.shape != vartem.shape:
+#                    #pdb.set_trace()
+#                    Lmin = np.min([X_flow.shape[0], vartem.shape[0]])
+#                    if X_flow.shape[0] > vartem.shape[0]:
+#                        X_flow = np.delete(X_flow, np.arange(Lmin, X_flow.shape[0]))
+#                    elif X_flow.shape[0] < vartem.shape[0]:
+#                        vartem = np.delete(vartem, np.arange(Lmin, vartem.shape[0]))
+#
+#                ## segment location : WB.X[seg_id-1]
+#                
+#                ## find index
+#                ## There are two options
+#                ## Option 1: the concentrate at the exact segment
+#                inds = self.find_seg_index_exact(WB.X[seg_id-1], X_flow, vartem)
+#                ## Option 2: the concentrate beyond the segment
+#                #inds_beyond = self.find_seg_index_beyond(WB.X[seg_id-1], X_flow, vartem)
+#                    
+#                concentrate[seg_id-1] = vartem[inds[0]]    
+                
+                if water_level:
+                    
+                    eta = np.asarray( self.var_output['Elevation']['value'][tt][ind0:ind1+1] )
+
+                    if X_flow.shape != eta.shape:
+                        Lmin = np.min([X_flow.shape[0], eta.shape[0]])
+                        if X_flow.shape[0] > eta.shape[0]:
+                            X_flow = np.delete(X_flow, np.arange(Lmin, X_flow.shape[0]))
+                        elif X_flow.shape[0] < eta.shape[0]:
+                            eta = np.delete(eta, np.arange(Lmin, eta.shape[0]))
+                    
+                    
+                    inds_eta = self.find_seg_index_exact(WB.X[seg_id-1], X_flow, eta)
+                
+                    elevation[seg_id-1] = eta[inds_eta[0]]  
+                    
+
+        if water_level:
+            return concentrate[1:-1], elevation[1:-1]/0.3048
+            
+    
+    
+    def find_seg_index_exact(self, x_seg, x_flow, var):
+        """
+        find all index at the exact segment location
+        var is used to filter out masked values
+        """
+        xtem = np.abs(x_flow - x_seg)
+        
+        inds_tem = np.argwhere(xtem==xtem.min()).flatten()
+        
+        ## mask values not considered
+        inds = [ii for ii in inds_tem if var[ii] != self.mask_value]
+        
+        return inds
+    
+                
             
     
     def Xsearch(self, xx, xgrid):
@@ -525,7 +621,7 @@ class Particle_Tracking_Module(W2_Contour):
                
             #### find surface and bottom index
             mask = np.logical_or(Uin[ind_x_tem]!=self.mask_value, Win[ind_x_tem]!=self.mask_value) ## find invalid value  
-            ind_surface = Zin[ind_x_tem][mask].argsort()[-3]    ## maximum (or second maximum) Z
+            ind_surface = Zin[ind_x_tem][mask].argsort()[-2]    ## maximum (or second maximum) Z
             ind_bottom = Zin[ind_x_tem][mask].argsort()[2]    ## minimum (or second minimum) Z, note velocity at the bottom index
                                                               ## = 1 (second minimum) may have zero values, so make it 2 (third minimum)
             
@@ -650,4 +746,4 @@ if __name__ == "__main__":
     ## low
     wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
     PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(100, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    PTM.particle_tracking_model_1D(500, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)   ## vertical layer=-2, 500 particles
