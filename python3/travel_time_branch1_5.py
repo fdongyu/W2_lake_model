@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import matplotlib as mpl
+import pandas as pd
 
 from w2_contour import W2_Contour
 from bathymetry import W2_Bathymetry
@@ -104,22 +105,25 @@ class Tracer_Travel_Time(W2_Contour):
             if self.initialBranch == 1:
                 
                 ## calculate tracer concentrate based on the travel time
-                concentrate = self.Concentrate_branch1(starttime, endtime, Ttimes[0])
+                concentrate, water_level = self.Concentrate_branch1(starttime, endtime, Ttimes[0])
                 
                 ## conversion to zero travel time at donwstream gate (only on nonzero values)
                 Ttime = Ttimes[0]
                 Ttime[Ttime!=0] = Ttime[-1] - Ttime[Ttime!=0]
                 
                 ## save txt
-                txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
                 density = 9    ## density information not useful for non-soluble contanminants
-                self.savetxt_Traveltime_branch1(WS, Ttime, density, self.flows[flow_condition], concentrate, txtfile)
+                #txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
+                #self.savetxt_Traveltime_branch1(WS, Ttime, density, self.flows[flow_condition], concentrate, txtfile)
+                excelfile=r'excel\tracer_branch%s_%s.xlsx'%(str(self.initialBranch), flow_condition)
+                self.save_excel_Traveltime_branch1(WS, Ttime, density, self.flows[flow_condition], concentrate, water_level, excelfile)
+                
                 
                 
             elif self.initialBranch == 5:
                 
                 ## calculate tracer concentrate based on the travel time
-                concentrates = self.Concentrate_branch5(starttime, endtime, Ttimes)
+                concentrates, water_levels = self.Concentrate_branch5(starttime, endtime, Ttimes)
                 
                 
                 ## conversion to zero travel time at donwstream gate (only on nonzero values)
@@ -128,10 +132,11 @@ class Tracer_Travel_Time(W2_Contour):
                     Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
                 
                 ## save txt
-                txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
                 density = 9
-                self.savetxt_Traveltime_branch5(WS, Ttimes, density, self.flows[flow_condition], concentrates, txtfile)
-
+                #txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
+                #self.savetxt_Traveltime_branch5(WS, Ttimes, density, self.flows[flow_condition], concentrates, txtfile)
+                excelfile=r'excel\tracer_branch%s_%s.xlsx'%(str(self.initialBranch), flow_condition)
+                self.save_excel_Traveltime_branch5(WS, Ttimes, density, self.flows[flow_condition], concentrates, water_levels, excelfile)
                 
         
     
@@ -261,8 +266,7 @@ class Tracer_Travel_Time(W2_Contour):
         calculate the concentrate for spill initiated at branch 5
         """
         
-        return self.Concentrate(starttime, endtime, Ttime, branchID=1)[1:-1]  ## remove inactive segments
-    
+        return self.Concentrate(starttime, endtime, Ttime, branchID=1)  ## remove inactive segments
     
     
     
@@ -271,17 +275,18 @@ class Tracer_Travel_Time(W2_Contour):
         calculate the concentrate for spill initiated at branch 5
         """
         
-        concentrate1 = self.Concentrate(starttime, endtime, Ttimes[0], branchID=1)[1:-1]
+        concentrate1, water_level1 = self.Concentrate(starttime, endtime, Ttimes[0], branchID=1)
         
-        concentrate5 = self.Concentrate(starttime, endtime, Ttimes[1], branchID=5)[1:-1]
+        concentrate5, water_level5 = self.Concentrate(starttime, endtime, Ttimes[1], branchID=5)
         
-        return [concentrate1, concentrate5]
+        return [concentrate1, concentrate5], [water_level1, water_level5]
         
     
     
-    def Concentrate(self, starttime, endtime, Ttime, branchID):
+    def Concentrate(self, starttime, endtime, Ttime, branchID, water_level=True):
         """
         calculate the concentrate at each segment 
+        if water_level is True, save the water level data too
         """
         #### read bathymetry information
         Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
@@ -290,6 +295,8 @@ class Tracer_Travel_Time(W2_Contour):
 
         ## from Ttime, find the segment index and travel time (time step) info for each  
         concentrate = np.zeros_like(WB.X)   ## seg ID from 1 to 46 for branch 1
+        
+        elevation = np.zeros_like(WB.X)
         
         for ii, tt in enumerate(Ttime):
             tt = int(tt)
@@ -328,8 +335,8 @@ class Tracer_Travel_Time(W2_Contour):
                         X_flow = np.delete(X_flow, np.arange(Lmin, X_flow.shape[0]))
                     elif X_flow.shape[0] < vartem.shape[0]:
                         vartem = np.delete(vartem, np.arange(Lmin, vartem.shape[0]))
-                
-
+                        
+                        
                 ## segment location : WB.X[seg_id-1]
                 
                 ## find index
@@ -339,13 +346,29 @@ class Tracer_Travel_Time(W2_Contour):
                 ## Option 2: the concentrate beyond the segment
                 #inds_beyond = self.find_seg_index_beyond(WB.X[seg_id-1], X_flow, vartem)
                     
-                concentrate[seg_id-1] = vartem[inds[0]]
+                concentrate[seg_id-1] = vartem[inds[0]]    
                     
                 
-                #pdb.set_trace()
+                if water_level:
+                    
+                    eta = np.asarray( self.var_output['Elevation']['value'][tt][ind0:ind1+1] )
+
+                    if X_flow.shape != eta.shape:
+                        Lmin = np.min([X_flow.shape[0], eta.shape[0]])
+                        if X_flow.shape[0] > eta.shape[0]:
+                            X_flow = np.delete(X_flow, np.arange(Lmin, X_flow.shape[0]))
+                        elif X_flow.shape[0] < eta.shape[0]:
+                            eta = np.delete(eta, np.arange(Lmin, eta.shape[0]))
+                    
+                    inds_eta = self.find_seg_index_exact(WB.X[seg_id-1], X_flow, vartem)
                 
-                
-        return concentrate
+                    elevation[seg_id-1] = eta[inds_eta[0]]  
+                    
+        
+        if water_level:
+            return concentrate[1:-1], elevation[1:-1]/0.3048
+        else:
+            return concentrate[1:-1]
 
                 
                 
@@ -565,6 +588,60 @@ class Tracer_Travel_Time(W2_Contour):
     
     
     
+    def save_excel_Traveltime_branch1(self, WS, Ttime, density, flow_index, concentrate, water_level, excelfile):
+        """
+        save travel time info to excel .xlsx file: https://stackoverflow.com/questions/51904126/write-a-numpy-ndarray-to-an-xlsx-spreadsheet
+        branchID, segID, travel time, density, release_arm, solubility, flow_condition, concentration, water level
+        """
+        outarray = np.vstack((np.ones_like(Ttime), WS.segs1, Ttime, \
+                              np.ones_like(Ttime)*density, np.ones_like(Ttime), \
+                              np.ones_like(Ttime)*1, np.ones_like(Ttime)*flow_index, concentrate, water_level)).T
+        
+        headers = ["branchID", "segID", "travel_time", "density", "release_arm", \
+                   "solubility", "flow_condition", "concentration", "water_level"]
+                      
+        df = pd.DataFrame(outarray, columns=headers)
+        
+        df.to_excel(excelfile, index=False)
+        #pdb.set_trace()
+    
+    
+    def save_excel_Traveltime_branch5(self, WS, Ttimes, density, flow_index, concentrates, water_levels, excelfile):
+        """
+        save travel time info to excel .xlsx file for spill initiated at branch 5
+        """
+        
+        Ttime1 = Ttimes[0]    ## travel times at branch 1
+        Ttime5 = Ttimes[1]    ## travel times at branch 5
+        
+        concentrate1 = concentrates[0]
+        concentrate5 = concentrates[1]
+        
+        water_level1 = water_levels[0]
+        water_level5 = water_levels[1]
+        
+        outarray1 = np.vstack((np.ones_like(Ttime1), WS.segs1, Ttime1, \
+                              np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5, \
+                              np.ones_like(Ttime1), np.ones_like(Ttime1)*flow_index, \
+                              concentrate1, water_level1))
+        
+        #### important !! reverse WS.segs5, from 86 to 121
+        outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5[::-1], Ttime5, \
+                              np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5, \
+                              np.ones_like(Ttime5), np.ones_like(Ttime5)*flow_index, \
+                              concentrate5, water_level5))
+        
+        outarray = np.hstack((outarray5, outarray1)).T
+        
+        headers = ["branchID", "segID", "travel_time", "density", "release_arm", \
+                   "solubility", "flow_condition", "concentration", "water_level"]
+        
+        df = pd.DataFrame(outarray, columns=headers)
+        
+        df.to_excel(excelfile, index=False)
+        
+    
+    
     def savetxt_Traveltime_branch1(self, WS, Ttime, density, flow_index, concentrate, txtfile):
         """
         save travel time to a txt file
@@ -585,7 +662,7 @@ class Tracer_Travel_Time(W2_Contour):
     def savetxt_Traveltime_branch5(self, WS, Ttimes, density, flow_index, concentrates, txtfile):
         """
         output array: 
-            branchID, segID, travel time, density, release_arm, solubility, flow_condition
+            branchID, segID, travel time, density, release_arm, solubility, flow_condition, concentration
         density=1 heavy
         density=0 light
         release_arm=5 West
@@ -801,15 +878,15 @@ if __name__ == "__main__":
     
     
     #### branch 5
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200226_1142_tracer_high_branch5'  ## timestep=385
-    TTT = Tracer_Travel_Time(wdir)
-    TTT.travel_time_full_branch(starttime=385, initialBranch=5, initialSeg=105, flow_condition='high', write2shp=False)
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200226_1142_tracer_high_branch5'  ## timestep=385
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=385, initialBranch=5, initialSeg=105, flow_condition='high', write2shp=False)
     
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200226_1504_tracer_medium_branch5'  ## timestep=725
     #TTT = Tracer_Travel_Time(wdir)
     #TTT.travel_time_full_branch(starttime=725, initialBranch=5, initialSeg=105, flow_condition='medium', write2shp=False)
     
-    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200227_1109_tracer_low_branch5'  ## timestep=1085
-    #TTT = Tracer_Travel_Time(wdir)
-    #TTT.travel_time_full_branch(starttime=1085, initialBranch=5, initialSeg=105, flow_condition='low', write2shp=False)
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200227_1109_tracer_low_branch5'  ## timestep=1085
+    TTT = Tracer_Travel_Time(wdir)
+    TTT.travel_time_full_branch(starttime=1085, initialBranch=5, initialSeg=105, flow_condition='low', write2shp=False)
     

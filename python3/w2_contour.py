@@ -83,6 +83,7 @@ class W2_Contour(object):
         RHO = []
         TDS = []
         tracer = []
+        elevation = []
         
         for i in range(len(backflow_sections)):
             section = backflow_sections[i]
@@ -93,6 +94,7 @@ class W2_Contour(object):
             Ttem = [float(t[4]) for t in section]
             rhotem = [float(rho[5]) for rho in section]
             tdstem = [float(tds[6]) for tds in section]
+            etatem = [float(eta[1]) for eta in section]
             
             try:
                 trtem = [float(tr[7]) for tr in section]
@@ -113,12 +115,14 @@ class W2_Contour(object):
             RHO.append(rhotem)
             TDS.append(tdstem)
             tracer.append(trtem)
+            elevation.append(etatem)
             
         ## create python dictionary for water quality variables
         self.var_output = {}
         self.var_output.update({'TDS':{'value': TDS,'limits':[140,200], 'long_name': 'Total dissolved solids'}})
         self.var_output.update({'Tracer':{'value': tracer,'limits':[0,2], 'long_name': 'Conservative tracer'}})
         self.var_output.update({'T':{'value': T,'limits':[10,35], 'long_name': 'Water temperature (C)'}})
+        self.var_output.update({'Elevation':{'value': elevation,'limits':[135,155], 'long_name': 'Water elevation (m)'}})
         
         #pdb.set_trace()
         
