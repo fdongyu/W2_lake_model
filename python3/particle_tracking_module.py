@@ -36,6 +36,8 @@ class Particle_Tracking_Module(W2_Contour):
     #Dx = 1e-5  ##  longitudinal dispersion coefficient
     Dx = 1e-5*24*3600
     
+    solubility = 0  ## insoluble
+    
     flows = {'high': 3, 'medium': 2, 'low': 1} 
     
     def __init__(self, workdir, **kwargs):
@@ -76,11 +78,21 @@ class Particle_Tracking_Module(W2_Contour):
             self.X_surface, self.Z_surface, self.U_surface, \
             self.X_bottom, self.Z_bottom, self.U_bottom = self.read_velocity(Nt, branchID=1)
             
+            
+            ## contour plot of velocity
+            #self.plot_velocity(self.X_surface, self.U_surface) ## surface
+            #self.plot_velocity(self.X_bottom, self.U_bottom) ## surface
+            
+            
         elif branchID == 5:
             X_surface1, Z_surface1, U_surface1, \
             X_bottom1, Z_bottom1, U_bottom1 = self.read_velocity(Nt, branchID=1)
             X_surface5, Z_surface5, U_surface5, \
             X_bottom5, Z_bottom5, U_bottom5 = self.read_velocity(Nt, branchID=5)
+            
+            ## contour plot of velocity
+            #self.plot_velocity(X_surface5, U_surface5) ## surface
+            #self.plot_velocity(X_bottom5, U_bottom5) ## surface
             
             #### read bathymetry information
             Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
@@ -151,7 +163,7 @@ class Particle_Tracking_Module(W2_Contour):
             #pdb.set_trace()
             for t in range(Nt):
                 self.grid_x_surface[t] = self.Z_surface[t][0]
-        
+            
         
         if transportBottom:
             
@@ -179,8 +191,10 @@ class Particle_Tracking_Module(W2_Contour):
             
             for t in range(Nt):
                 self.grid_x_bottom[t] = self.Z_bottom[t][0]
-                
-        #pdb.set_trace()
+           
+        self.particle_animation(Nt, self.location_x_surface, branchID=branchID, verbose='surface_branch%d_%s_WSE'%(branchID, flow_condition))
+        self.particle_animation(Nt, self.location_x_bottom, branchID=branchID, verbose='bottom_branch%d_%s_WSE'%(branchID, flow_condition))
+        
 #        #### For testing only: visualize particle locations
 #        iy = 0
 #        plt.rcParams.update({'font.size': 16})
@@ -266,7 +280,7 @@ class Particle_Tracking_Module(W2_Contour):
             
             #### save travel time data to txt file ####
             #self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], txtfile)
-            save_excel_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], \
+            save_excel_Traveltime_branch1(WS, Ttime_avg, density, self.solubility, self.flows[self.flow_condition], \
                                                concentrate, water_level,excelfile)
             
             
@@ -359,7 +373,7 @@ class Particle_Tracking_Module(W2_Contour):
             
             #### save travel time data to txt file ####
             #self.savetxt_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], txtfile)
-            save_excel_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], \
+            save_excel_Traveltime_branch5(WS, Ttimes_avg, density, self.solubility, self.flows[self.flow_condition], \
                                           concentrates, water_levels, excelfile)
             
             
@@ -621,7 +635,7 @@ class Particle_Tracking_Module(W2_Contour):
                
             #### find surface and bottom index
             mask = np.logical_or(Uin[ind_x_tem]!=self.mask_value, Win[ind_x_tem]!=self.mask_value) ## find invalid value  
-            ind_surface = Zin[ind_x_tem][mask].argsort()[-2]    ## maximum (or second maximum) Z
+            ind_surface = Zin[ind_x_tem][mask].argsort()[-3]    ## maximum (or second maximum) Z
             ind_bottom = Zin[ind_x_tem][mask].argsort()[2]    ## minimum (or second minimum) Z, note velocity at the bottom index
                                                               ## = 1 (second minimum) may have zero values, so make it 2 (third minimum)
             
@@ -670,8 +684,89 @@ class Particle_Tracking_Module(W2_Contour):
         return np.argwhere(xtem==xtem.min())[0][0]
             
     
+    def plot_velocity(self, x, uu):
+        """
+        generate the contour plot of velocity
+        """
+        
+        #pdb.set_trace()
+        
+        tt = np.arange(len(uu)) + 1
+        
+        lx = max(map(len, x))
+        for i in range(len(x)):
+            if len(x[i]) == lx:
+                y = x[i]
+                exit
+        
+        #y = np.array([[None]*(lx-len(xi)) + xi for xi in x])
+        unew = np.array([[None]*(lx-len(xi)) + xi for xi in uu])
+        
+        #pdb.set_trace()
+        
+        plt.rcParams.update({'font.size': 18})
+        fig = plt.figure(figsize=(11.5,8))
+        ax = fig.add_subplot(111)
+        
+        levels = np.linspace(-0.05, 0.05, 100)
+        cmap = plt.set_cmap('bwr')
+        CS = ax.contourf(tt, y, unew.T, cmap=cmap, levels=levels)
+        ax.set_ylim(ax.get_ylim()[::-1])
+        ax.set_xlabel('Time (day)')
+        ax.set_ylabel('Distance from upstream (m)')
+        
+        cb = fig.colorbar(CS, orientation='vertical')
+        cb.set_label('Velocity (m/s)', fontsize=18)
+        plt.show()
+        
+    
+    def particle_animation(self, Nt, particle_location, branchID=1, verbose='surface'):
+        """
+        create animation for 1D particle tracking
+        verbose: 'surface' or 'bottom'
+        """
+        import matplotlib.animation as animation
+        
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=5, metadata=dict(artist='Me'), bitrate=1800)
+        
+        xx = np.arange(particle_location.shape[0]) + 1
+        
+        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
+        WB = W2_Bathymetry(Bthfile)
+        pat = WB.VisBranch2(branchID)
+        
+        plt.rcParams.update({'font.size': 18})
+        fig = plt.figure(figsize=(8,12.5))
+        ax = fig.add_subplot(111)
+    
         
         
+            
+        def animate(ii):
+            ax.clear()
+            ### grid segments
+            for yc in WB.X:
+                ax.axhline(y=yc, color='gray', linestyle='-', linewidth=1)
+            
+            #### particle positions
+            #for i in range(particle_location.shape[0]):
+            cs = ax.plot(xx, particle_location[:,ii], 'ok', markersize=3.5) ## at 3rd time step
+        
+            ax.title.set_text('%s \n Time step = %d'%(verbose, ii))
+            ax.set_ylim([-1500, 28500])
+            ax.set_ylim(ax.get_ylim()[::-1])
+            ax.set_xlabel('Particle ID')
+            ax.set_ylabel('Distance from upstream (m)')
+            
+        
+            return cs
+        
+        anim = animation.FuncAnimation(fig, animate, frames=Nt, interval=600, blit=False)
+        anim.save(r'excel\videos\%s.mp4'%verbose, writer=writer)
+        
+        #plt.show()
+    
         
 if __name__ == "__main__": 
     
@@ -715,6 +810,7 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(200, 350, 22, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
     
     
+    ######################################### Flow rate ###############################################
     #### branch 1
     ## high
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
@@ -744,6 +840,40 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(100, 350, 21, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## low
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(500, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)   ## vertical layer=-2, 500 particles
+    
+    
+    ######################################### Water elevation ###############################################
+    #### branch 1
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1649_tracer_low_WSE_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 18, starttime=253, branchID=1, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1649_tracer_low_WSE_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 17, starttime=450, branchID=1, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium 
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1649_tracer_low_WSE_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 17, starttime=825, branchID=1, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    #### branch 5
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=253, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_0909_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=450, branchID=5, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
+    
+    ## medium
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
     PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(500, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)   ## vertical layer=-2, 500 particles
+    PTM.particle_tracking_model_1D(100, 350, 21, starttime=825, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
