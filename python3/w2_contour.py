@@ -166,10 +166,37 @@ class W2_Contour(object):
             
         X_flow = self.X_flow[timestep][ind0:ind1+1]
         Z_flow = self.Z_flow[timestep][ind0:ind1+1]
+        var = self.var_output[varname]['value'][timestep][ind0:ind1+1]
+        
+        pdb.set_trace()
+        ###############   nested list ###############
+        def has_list(inlist):
+            return any(isinstance(el, list) for el in inlist)
+        
+        import collections
+        def list_flatten(x):
+            if isinstance(x, collections.abc.Iterable):
+                return [a for i in x for a in list_flatten(i)]
+            else:
+                return [x]
+        
+        if has_list(X_flow):
+            X_flow = list_flatten(X_flow)
+        if has_list(Z_flow):
+            Z_flow = list_flatten(Z_flow)
+        if has_list(var):
+            var = list_flatten(var)
+        ##############################################
+        pdb.set_trace()    
         
         X_flow = np.asarray(X_flow)
-        Z_flow = np.asarray(Z_flow)
-
+        Z_flow = np.asarray(Z_flow)    
+        var = np.asarray(var)
+        
+        #### quality control remove some very small values (spikes) ####
+        #var[(var.mask==False)&(var<1e-15)]=0
+        var[(var==self.mask_value)&(var<1e-15)] = 0
+        
 
         plt.rcParams.update({'font.size': 18})
         fig = plt.figure(figsize=(11.5,8))
@@ -212,12 +239,6 @@ class W2_Contour(object):
         
         
         
-        var = self.var_output[varname]['value'][timestep][ind0:ind1+1]
-        var = np.asarray(var)
-        
-        #### quality control remove some very small values (spikes) ####
-        #var[(var.mask==False)&(var<1e-15)]=0
-        var[(var==self.mask_value)&(var<1e-15)] = 0
         
         
         #var = np.ma.masked_array(var,mask=var==self.mask_value)
@@ -413,10 +434,17 @@ if __name__ == "__main__":
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200227_1109_tracer_low_branch5'  ## timestep=1085
     
     #### water level
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200302_1649_tracer_low_WSE_branch1'  ## timestep=253
+    #### branch 1
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1649_tracer_low_WSE_branch1'  ## timestep=253
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1654_tracer_high_WSE_branch1'  ## timestep=450
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200303_1656_tracer_medium_WSE_branch1'  ## timestep=825
     
+    #### branch 5
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200303_1702_tracer_low_WSE_branch5'   ## timestep=253
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200304_1040_tracer_high_WSE_branch5'  ## timestep=451
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200304_1709_tracer_medium_WSE_branch5'  ## timestep=825
     
     WC = W2_Contour(wdir)
-    #WC.VisContour('Tracer', timestep=253, branchID=1, Plotuv=True, PlotGrid=True)
+    WC.VisContour('Tracer', timestep=451, branchID=1, Plotuv=True, PlotGrid=True)
     #WC.VisContour('T', timestep=825, branchID=5, Plotuv=True, PlotGrid=True)
-    WC.AnimateContour(varname='Tracer', timestep=253, branchID=1, days=300, PlotGrid=True)
+    #WC.AnimateContour(varname='Tracer', timestep=450, branchID=1, days=300, PlotGrid=True)
