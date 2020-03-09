@@ -44,6 +44,7 @@ class Particle_Tracking_Module(W2_Contour):
         
         self.workdir = workdir
         
+        self.Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
         #self.Nt = 300  ## number of days to calculate particle transport
       
         self.read_output()
@@ -95,8 +96,7 @@ class Particle_Tracking_Module(W2_Contour):
             #self.plot_velocity(X_bottom5, U_bottom5) ## surface
             
             #### read bathymetry information
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WB = W2_Bathymetry(Bthfile)
+            WB = W2_Bathymetry(self.Bthfile)
             pat = WB.VisBranch2(branchID=1)
             #### adding branch 5 to main branch 
             self.X_surface = []
@@ -127,8 +127,7 @@ class Particle_Tracking_Module(W2_Contour):
             
             
         #### read bathymetry information
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
         
         
@@ -192,8 +191,8 @@ class Particle_Tracking_Module(W2_Contour):
             for t in range(Nt):
                 self.grid_x_bottom[t] = self.Z_bottom[t][0]
            
-        self.particle_animation(Nt, self.location_x_surface, branchID=branchID, verbose='surface_branch%d_%s_WSE'%(branchID, flow_condition))
-        self.particle_animation(Nt, self.location_x_bottom, branchID=branchID, verbose='bottom_branch%d_%s_WSE'%(branchID, flow_condition))
+        #self.particle_animation(Nt, self.location_x_surface, branchID=branchID, verbose='surface_branch%d_%s_WSE'%(branchID, flow_condition))
+        #self.particle_animation(Nt, self.location_x_bottom, branchID=branchID, verbose='bottom_branch%d_%s_WSE'%(branchID, flow_condition))
         
 #        #### For testing only: visualize particle locations
 #        iy = 0
@@ -225,8 +224,7 @@ class Particle_Tracking_Module(W2_Contour):
         if branchID == 1:
             
             #### read segment information
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WB = W2_Bathymetry(Bthfile)
+            WB = W2_Bathymetry(self.Bthfile)
             pat = WB.VisBranch2(branchID)
         
             #### create empty array for travel time
@@ -269,19 +267,20 @@ class Particle_Tracking_Module(W2_Contour):
             ## calculate concentrate/water_level based on the travel time 
             concentrate, water_level = self.Concentrate_branch1(Nt, starttime, Ttime_avg)
             
+            ## calculate distance to WTP gate
+            dist = self.dist2WTP_branch1(Ttime_avg)
+            
             
             Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0] 
             
-            
             #### call segment class for segment information
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WS = W2_Segmentation(Bthfile)
+            WS = W2_Segmentation(self.Bthfile)
             WS.VisSeg2()
             
             #### save travel time data to txt file ####
             #self.savetxt_Traveltime_branch1(WS, Ttime_avg, density, self.flows[self.flow_condition], txtfile)
             save_excel_Traveltime_branch1(WS, Ttime_avg, density, self.solubility, self.flows[self.flow_condition], \
-                                               concentrate, water_level,excelfile)
+                                               concentrate, water_level, dist, excelfile)
             
             
             if write2shp:
@@ -295,15 +294,13 @@ class Particle_Tracking_Module(W2_Contour):
             Under development
             """
             #### read segment information for branch 5
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WB = W2_Bathymetry(Bthfile)
+            WB = W2_Bathymetry(self.Bthfile)
             pat = WB.VisBranch2(branchID)
             
             x_branch5 = WB.X   #### segment x coordinates for branch 5
             
             #### read segment information for branch 1
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WB = W2_Bathymetry(Bthfile)
+            WB = W2_Bathymetry(self.Bthfile)
             pat = WB.VisBranch2(branchID=1)
             
             x_branch1 = WB.X
@@ -361,20 +358,23 @@ class Particle_Tracking_Module(W2_Contour):
             concentrates, water_levels = self.Concentrate_branch5(Nt, starttime, Ttimes_avg)
             
             
+            ## calculate distance to WTP gate
+            dists = self.dist2WTP_branch5(Ttimes_avg)
+            
+            
             MaxTime = Ttimes_avg[0][-1]
             for Ttime in Ttimes_avg:
                 Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
             
             #### call segment class for segment information
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WS = W2_Segmentation(Bthfile)
+            WS = W2_Segmentation(self.Bthfile)
             WS.VisSeg2()
             
             
             #### save travel time data to txt file ####
             #self.savetxt_Traveltime_branch5(WS, Ttimes_avg, density, self.flows[self.flow_condition], txtfile)
             save_excel_Traveltime_branch5(WS, Ttimes_avg, density, self.solubility, self.flows[self.flow_condition], \
-                                          concentrates, water_levels, excelfile)
+                                          concentrates, water_levels, dists, excelfile)
             
             
             if write2shp:
@@ -412,8 +412,7 @@ class Particle_Tracking_Module(W2_Contour):
         """
         
         #### read bathymetry information
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
 
         ## from Ttime, find the segment index and travel time (time step) info for each  
@@ -494,6 +493,53 @@ class Particle_Tracking_Module(W2_Contour):
             return concentrate[1:-1], elevation[1:-1]/0.3048
             
     
+    def dist2WTP_branch1(self, Ttime):
+        """
+        calculate the distance to the WTP gate for branch 1
+        """
+        
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        
+        dist_tem = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        ind = next((i for i, x in enumerate(Ttime) if x), None)
+        
+        dist_tem[:ind] = 0
+        
+        return dist_tem
+    
+    
+    def dist2WTP_branch5(self, Ttimes):
+        """
+        calculate the distance to the WTP gate for branch 5
+        """
+        
+        ## branch 5
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=5)
+        
+        dist_tem5 = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        ind5 = next((i for i, x in enumerate(Ttimes[1]) if x), None)
+        dist_tem5[:ind5] = 0
+        
+        
+        ## branch 1
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        dist_tem1 = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        dx = dist_tem1[-3] - dist_tem1[-2]
+        
+        ind1 = next((i for i, x in enumerate(Ttimes[0]) if x), None)
+        dist_tem1[:ind1] = 0
+        
+        dist_tem5[ind5:] += dx + dist_tem1[ind1]
+        
+        return [dist_tem1, dist_tem5]
+    
+    
     
     def find_seg_index_exact(self, x_seg, x_flow, var):
         """
@@ -532,8 +578,7 @@ class Particle_Tracking_Module(W2_Contour):
         """
         
         #### read bathymetry information
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
         
         X_surface = []     ## [time period, x grid points]
@@ -732,8 +777,7 @@ class Particle_Tracking_Module(W2_Contour):
         
         xx = np.arange(particle_location.shape[0]) + 1
         
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
         
         plt.rcParams.update({'font.size': 18})
@@ -840,9 +884,9 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(100, 350, 21, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## low
-    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
-    #PTM = Particle_Tracking_Module(wdir)
-    #PTM.particle_tracking_model_1D(500, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)   ## vertical layer=-2, 500 particles
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    PTM = Particle_Tracking_Module(wdir)
+    PTM.particle_tracking_model_1D(500, 350, 21, starttime=1085, branchID=5, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)   ## vertical layer=-2, 500 particles
     
     
     ######################################### Water elevation ###############################################
@@ -874,6 +918,6 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(100, 350, 21, starttime=450, branchID=5, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## medium
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
-    PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(100, 350, 21, starttime=825, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=825, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)

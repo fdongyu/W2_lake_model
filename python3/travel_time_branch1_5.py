@@ -30,6 +30,8 @@ class Tracer_Travel_Time(W2_Contour):
     #branch5
     DHS5 = 43
     
+    solubility = 1  ## soluble
+    
     flows = {'high': 3, 'medium': 2, 'low': 1} 
     
 
@@ -37,6 +39,7 @@ class Tracer_Travel_Time(W2_Contour):
         
         self.workdir = workdir
         
+        self.Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
     
     
     def travel_time_full_branch(self, starttime, initialBranch=1, initialSeg=1, flow_condition='high', write2shp=False, write2txt=True):
@@ -98,8 +101,7 @@ class Tracer_Travel_Time(W2_Contour):
         ## save to txt file
         if write2txt:
             #### call segment class for segment information
-            Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-            WS = W2_Segmentation(Bthfile)
+            WS = W2_Segmentation(self.Bthfile)
             WS.VisSeg2()
             
             #### save travel time data to txt file ####
@@ -107,6 +109,9 @@ class Tracer_Travel_Time(W2_Contour):
                 
                 ## calculate tracer concentrate based on the travel time
                 concentrate, water_level = self.Concentrate_branch1(starttime, endtime, Ttimes[0])
+                
+                ## calculate distance to WTP gate
+                dist = self.dist2WTP_branch1(Ttimes[0])
                 
                 ## conversion to zero travel time at donwstream gate (only on nonzero values)
                 Ttime = Ttimes[0]
@@ -117,7 +122,7 @@ class Tracer_Travel_Time(W2_Contour):
                 #txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
                 #self.savetxt_Traveltime_branch1(WS, Ttime, density, self.flows[flow_condition], concentrate, txtfile)
                 excelfile=r'excel\tracer_branch%s_%s.xlsx'%(str(self.initialBranch), flow_condition)
-                save_excel_Traveltime_branch1(WS, Ttime, density, self.flows[flow_condition], concentrate, water_level, excelfile)
+                save_excel_Traveltime_branch1(WS, Ttime, density, self.solubility, self.flows[flow_condition], concentrate, water_level, dist, excelfile)
                 
                 
                 
@@ -126,6 +131,8 @@ class Tracer_Travel_Time(W2_Contour):
                 ## calculate tracer concentrate based on the travel time
                 concentrates, water_levels = self.Concentrate_branch5(starttime, endtime, Ttimes)
                 
+                ## calculate distance to WTP gate
+                dists = self.dist2WTP_branch5(Ttimes)
                 
                 ## conversion to zero travel time at donwstream gate (only on nonzero values)
                 MaxTime = Ttimes[0][-1]
@@ -137,7 +144,7 @@ class Tracer_Travel_Time(W2_Contour):
                 #txtfile=r'txt\tracer_branch%s_%s.txt'%(str(self.initialBranch), flow_condition)
                 #self.savetxt_Traveltime_branch5(WS, Ttimes, density, self.flows[flow_condition], concentrates, txtfile)
                 excelfile=r'excel\tracer_branch%s_%s.xlsx'%(str(self.initialBranch), flow_condition)
-                save_excel_Traveltime_branch5(WS, Ttimes, density, self.flows[flow_condition], concentrates, water_levels, excelfile)
+                save_excel_Traveltime_branch5(WS, Ttimes, density, self.solubility, self.flows[flow_condition], concentrates, water_levels, dists, excelfile)
                 
         
     
@@ -153,8 +160,7 @@ class Tracer_Travel_Time(W2_Contour):
         print ("Calculate travel time for branch %s ... \n"%str(branchID))
         
         #### read bathymetry information
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
         
         #### create empty array for travel time
@@ -290,8 +296,7 @@ class Tracer_Travel_Time(W2_Contour):
         if water_level is True, save the water level data too
         """
         #### read bathymetry information
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WB = W2_Bathymetry(Bthfile)
+        WB = W2_Bathymetry(self.Bthfile)
         pat = WB.VisBranch2(branchID)
 
         ## from Ttime, find the segment index and travel time (time step) info for each  
@@ -371,7 +376,55 @@ class Tracer_Travel_Time(W2_Contour):
         else:
             return concentrate[1:-1]
 
-                
+          
+    def dist2WTP_branch1(self, Ttime):
+        """
+        calculate the distance to the WTP gate for branch 1
+        """
+        
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        
+        dist_tem = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        ind = next((i for i, x in enumerate(Ttime) if x), None)  ## find the first nonzero element in a list
+        
+        dist_tem[:ind] = 0
+        
+        return dist_tem
+    
+    
+    def dist2WTP_branch5(self, Ttimes):
+        """
+        calculate the distance to the WTP gate for branch 5
+        """
+        
+        ## branch 5
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=5)
+        
+        dist_tem5 = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        ind5 = next((i for i, x in enumerate(Ttimes[1]) if x), None)
+        dist_tem5[:ind5] = 0
+        
+        
+        ## branch 1
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        dist_tem1 = WB.X[1:-1][::-1] * 3.28084  ## unit: ft
+        
+        dx = dist_tem1[-3] - dist_tem1[-2]
+        
+        ind1 = next((i for i, x in enumerate(Ttimes[0]) if x), None)
+        dist_tem1[:ind1] = 0
+        
+        dist_tem5[ind5:] += dx + dist_tem1[ind1]
+        
+        return [dist_tem1, dist_tem5]
+        
+        
+        
                 
     def find_seg_index_exact(self, x_seg, x_flow, var):
         """
@@ -411,8 +464,7 @@ class Tracer_Travel_Time(W2_Contour):
         """
         
         #### call segment class for plotting
-        Bthfile = '%s\\%s'%(self.workdir, 'Bth_WB1.npt')
-        WS = W2_Segmentation(Bthfile)
+        WS = W2_Segmentation(self.Bthfile)
         WS.VisSeg2()
         
         
@@ -762,6 +814,7 @@ if __name__ == "__main__":
     #### but at day 726, the tracer might be found in segment 15. 
     
     
+    ############################ flow rate ##############################
     #### branch 1
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200221_0930_tracer_high_branch1'
     #TTT = Tracer_Travel_Time(wdir)
@@ -785,7 +838,41 @@ if __name__ == "__main__":
     #TTT = Tracer_Travel_Time(wdir)
     #TTT.travel_time_full_branch(starttime=725, initialBranch=5, initialSeg=105, flow_condition='medium', write2shp=False)
     
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200227_1109_tracer_low_branch5'  ## timestep=1085
-    TTT = Tracer_Travel_Time(wdir)
-    TTT.travel_time_full_branch(starttime=1085, initialBranch=5, initialSeg=105, flow_condition='low', write2shp=False)
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\flow_rate\20200227_1109_tracer_low_branch5'  ## timestep=1085
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=1085, initialBranch=5, initialSeg=105, flow_condition='low', write2shp=False)
+    
+    
+    ############################ water level ##############################
+    #### branch 1
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1649_tracer_low_WSE_branch1'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=253, initialBranch=1, initialSeg=18, flow_condition='low', write2shp=False)
+    
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200302_1654_tracer_high_WSE_branch1'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=451, initialBranch=1, initialSeg=17, flow_condition='high', write2shp=False)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200303_1656_tracer_medium_WSE_branch1'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=825, initialBranch=1, initialSeg=18, flow_condition='medium', write2shp=False)
+    
+    #### branch 5
+    ## low
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200303_1702_tracer_low_WSE_branch5'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=253, initialBranch=5, initialSeg=105, flow_condition='low', write2shp=False)
+    
+    ## high
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200304_1040_tracer_high_WSE_branch5'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=451, initialBranch=5, initialSeg=105, flow_condition='high', write2shp=False)
+    
+    ## medium
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\water_level\20200304_1709_tracer_medium_WSE_branch5'
+    #TTT = Tracer_Travel_Time(wdir)
+    #TTT.travel_time_full_branch(starttime=825, initialBranch=5, initialSeg=105, flow_condition='medium', write2shp=False)
     

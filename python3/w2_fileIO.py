@@ -27,7 +27,7 @@ def savetxt_Traveltime_branch1(WS, Ttime, density, flow_index, concentrate, txtf
     
 
 
-def savetxt_Traveltime_branch5(self, WS, Ttimes, density, flow_index, concentrates, txtfile):
+def savetxt_Traveltime_branch5(WS, Ttimes, density, flow_index, concentrates, txtfile):
     """
     output array: 
         branchID, segID, travel time, density, release_arm, solubility, flow_condition, concentration
@@ -58,17 +58,18 @@ def savetxt_Traveltime_branch5(self, WS, Ttimes, density, flow_index, concentrat
     
 
     
-def save_excel_Traveltime_branch1(WS, Ttime, density, flow_index, concentrate, water_level, excelfile):
+def save_excel_Traveltime_branch1(WS, Ttime, density, solubility, flow_index, concentrate, water_level, dist, excelfile):
     """
     save travel time info to excel .xlsx file: https://stackoverflow.com/questions/51904126/write-a-numpy-ndarray-to-an-xlsx-spreadsheet
     branchID, segID, travel time, density, release_arm, solubility, flow_condition, concentration, water level
     """
     outarray = np.vstack((np.ones_like(Ttime), WS.segs1, Ttime, \
                           np.ones_like(Ttime)*density, np.ones_like(Ttime), \
-                          np.ones_like(Ttime)*1, np.ones_like(Ttime)*flow_index, concentrate, water_level)).T
+                          np.ones_like(Ttime)*solubility, np.ones_like(Ttime)*flow_index, \
+                          concentrate, water_level, dist)).T
         
     headers = ["branchID", "segID", "travel_time", "density", "release_arm", \
-               "solubility", "flow_condition", "concentration", "water_level"]
+               "solubility", "flow_condition", "concentration", "water_level", "distance"]
                       
     df = pd.DataFrame(outarray, columns=headers)
         
@@ -76,7 +77,7 @@ def save_excel_Traveltime_branch1(WS, Ttime, density, flow_index, concentrate, w
     
 
 
-def save_excel_Traveltime_branch5(WS, Ttimes, density, flow_index, concentrates, water_levels, excelfile):
+def save_excel_Traveltime_branch5(WS, Ttimes, density, solubility, flow_index, concentrates, water_levels, dists, excelfile):
     """
     save travel time info to excel .xlsx file for spill initiated at branch 5
     """
@@ -87,24 +88,27 @@ def save_excel_Traveltime_branch5(WS, Ttimes, density, flow_index, concentrates,
     concentrate1 = concentrates[0]
     concentrate5 = concentrates[1]
     
+    dist1 = dists[0]
+    dist5 = dists[1]
+    
     water_level1 = water_levels[0]
     water_level5 = water_levels[1]
     
     outarray1 = np.vstack((np.ones_like(Ttime1), WS.segs1, Ttime1, \
                           np.ones_like(Ttime1)*density, np.ones_like(Ttime1)*5, \
-                          np.ones_like(Ttime1), np.ones_like(Ttime1)*flow_index, \
-                          concentrate1, water_level1))
+                          np.ones_like(Ttime1)*solubility, np.ones_like(Ttime1)*flow_index, \
+                          concentrate1, water_level1, dist1))
         
     #### important !! reverse WS.segs5, from 86 to 121
     outarray5 = np.vstack((np.ones_like(Ttime5)*5, WS.segs5[::-1], Ttime5, \
                           np.ones_like(Ttime5)*density, np.ones_like(Ttime5)*5, \
-                          np.ones_like(Ttime5), np.ones_like(Ttime5)*flow_index, \
-                          concentrate5, water_level5))
+                          np.ones_like(Ttime5)*solubility, np.ones_like(Ttime5)*flow_index, \
+                          concentrate5, water_level5, dist5))
         
     outarray = np.hstack((outarray5, outarray1)).T
         
     headers = ["branchID", "segID", "travel_time", "density", "release_arm", \
-                   "solubility", "flow_condition", "concentration", "water_level"]
+                   "solubility", "flow_condition", "concentration", "water_level", "distance"]
         
     df = pd.DataFrame(outarray, columns=headers)
         
