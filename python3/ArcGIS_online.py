@@ -172,6 +172,7 @@ class ArcGIS_online_map(W2_Segmentation):
         flow_condition_branch1 = []
         concentration_branch1 = []
         water_level_branch1 = []
+        dist_branch1 = []
         
         
         for iarray in range(Narray_branch1):
@@ -222,6 +223,7 @@ class ArcGIS_online_map(W2_Segmentation):
                         concentration_branch1.append(str(self.inarrays_branch1[iarray][i,7]))
                         
                     water_level_branch1.append(self.inarrays_branch1[iarray][i,8])
+                    dist_branch1.append(self.inarrays_branch1[iarray][i,9])
         
         #### travel time for branch 5
         #Ttime = self.inarrays_particle_branch5[0][:,2]
@@ -243,6 +245,7 @@ class ArcGIS_online_map(W2_Segmentation):
         flow_condition_branch5 = []
         concentration_branch5 = []
         water_level_branch5 = []
+        dist_branch5 = []
         
         
         ## loop over all travel time for each array, find which is in branch 1 and which is in branch 5
@@ -299,6 +302,7 @@ class ArcGIS_online_map(W2_Segmentation):
                             concentration_branch5.append(str(self.inarrays_branch5[iarray][i,7]))
                             
                         water_level_branch5.append(self.inarrays_branch5[iarray][i,8])
+                        dist_branch5.append(self.inarrays_branch5[iarray][i,9])
                 
                 
                 elif self.inarrays_branch5[iarray][i,0] == 1: ## at branch 1
@@ -343,6 +347,7 @@ class ArcGIS_online_map(W2_Segmentation):
                             concentration_branch5.append(str(self.inarrays_branch5[iarray][i,7]))
                             
                         water_level_branch5.append(self.inarrays_branch5[iarray][i,8])
+                        dist_branch5.append(self.inarrays_branch5[iarray][i,9])
         
 
         #### combine all data into one big array
@@ -360,6 +365,7 @@ class ArcGIS_online_map(W2_Segmentation):
         flow_combined = flow_condition_branch1 + flow_condition_branch5
         concentration_combined = concentration_branch1 + concentration_branch5 
         water_level_combined = water_level_branch1 + water_level_branch5 
+        dist_combined = dist_branch1 + dist_branch5
     
         #### Create the shapefile
         # Create the projection
@@ -421,8 +427,12 @@ class ArcGIS_online_map(W2_Segmentation):
         field_def = osgeo.ogr.FieldDefn('WSE (ft)', osgeo.ogr.OFTReal)
         layer.CreateField(field_def)
         
+        ## distance to WTP gate
+        field_def = osgeo.ogr.FieldDefn('D (ft)', osgeo.ogr.OFTReal)
+        layer.CreateField(field_def)
         
-        def add_feature(layer, branchID, segs, lines, westlon, westlat, eastlon, eastlat, Ttime, density, Initial_loc, solubility, flows, concentration, water_level):
+        
+        def add_feature(layer, branchID, segs, lines, westlon, westlat, eastlon, eastlat, Ttime, density, Initial_loc, solubility, flows, concentration, water_level, dist):
             """
             function that adds feature to layer
             """    
@@ -457,6 +467,7 @@ class ArcGIS_online_map(W2_Segmentation):
                 feature.SetField('Flow', flows[i])
                 feature.SetField('C (mg/L)', concentration[i])
                 feature.SetField('WSE (ft)', water_level[i])
+                feature.SetField('D (ft)', dist[i])
                 
                 layer.CreateFeature(feature)
         
@@ -464,7 +475,7 @@ class ArcGIS_online_map(W2_Segmentation):
         add_feature(layer, branchIDs_combined, SegIDs_combined, lines_combined, \
                     westlons_combined, westlats_combined, eastlons_combined, eastlats_combined, \
                     Ttimes_combined, Density_combined, Initial_loc_combined, solubility_combined, \
-                    flow_combined, concentration_combined, water_level_combined)
+                    flow_combined, concentration_combined, water_level_combined, dist_combined)
 
     
         
