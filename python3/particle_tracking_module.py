@@ -273,6 +273,9 @@ class Particle_Tracking_Module(W2_Contour):
             ## calculate distance to WTP gate
             dist = self.dist2WTP_branch1(Ttime_avg)
             
+            ## calculate particle percentage
+            percentage = self.Percentage_branch1(Np, Nt, starttime, location_x, Ttime_avg)
+            
             
             Ttime_avg[Ttime_avg!=0] = Ttime_avg[-1] - Ttime_avg[Ttime_avg!=0] 
             
@@ -310,8 +313,10 @@ class Particle_Tracking_Module(W2_Contour):
             
             #### create empty array for travel time
             #### should not include the inactive cell at the end of branch5 when combining
+#            x_combined = x_branch5.tolist()[0:-1] + \
+#                        (x_branch1[self.DHS5-1:] - x_branch1[self.DHS5-1] + x_branch5[-2]).tolist()
             x_combined = x_branch5.tolist()[0:-1] + \
-                        (x_branch1[self.DHS5-1:] - x_branch1[self.DHS5-1] + x_branch5[-2]).tolist()
+                        (x_branch1[self.DHS5-1:] - x_branch1[self.DHS5-1] + x_branch5[-2]).tolist()[1:]
             x_combined = np.asarray(x_combined)
             Ttime = np.zeros([Np, x_combined.shape[0]])
             
@@ -337,7 +342,8 @@ class Particle_Tracking_Module(W2_Contour):
             Ttime5 = Ttime[:, 0: len(x_branch5[0:-1])+1]
             
             Ttime1 = np.zeros([Np, len(x_branch1)])
-            Ttime1[:, self.DHS5:] = Ttime[:, len(x_branch5[0:-1])+1:]
+            #Ttime1[:, self.DHS5:] = Ttime[:, len(x_branch5[0:-1])+1:]
+            Ttime1[:, self.DHS5:-1] = Ttime[:, len(x_branch5[0:-1])+1:]
             
             #pdb.set_trace()
             #### calculate the average among particles
@@ -365,6 +371,10 @@ class Particle_Tracking_Module(W2_Contour):
             dists = self.dist2WTP_branch5(Ttimes_avg)
             
             
+            ## calculate particle percentage
+            percentages = self.Percentage_branch5(Np, Nt, starttime, location_x, x_combined, Ttimes_avg)
+            
+            
             MaxTime = Ttimes_avg[0][-1]
             for Ttime in Ttimes_avg:
                 Ttime[Ttime!=0] = MaxTime - Ttime[Ttime!=0]
@@ -385,6 +395,88 @@ class Particle_Tracking_Module(W2_Contour):
                                               
                 writeShpLines(WS, Ttimes_avg, shpname='particle_bottom_traveltime_branch5')
            
+    
+    def Percentage_branch1(self, Np, Nt, starttime, location_x, Ttime_avg):
+        """
+        At branch 1
+        calculate the particle percentage for each transect at the corresponding travel time
+        """
+        
+        #### read bathymetry information
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        
+        x_branch1 = WB.X
+        
+        ## from Ttime, find the segment index and travel time (time step) info for each  
+        percentage = np.zeros_like(x_branch1)   ## seg ID from 1 to 46 for branch 1
+        
+        for ii, tt in enumerate(Ttime_avg):
+            tt = int(tt)
+            if tt != 0:
+                tt += starttime
+                seg_id = ii + 2
+                #print ('Calculate particle percentage for time step = %s, segment = %d\n'%(str(tt), seg_id))
+        
+                icount = 0
+                for i in range(location_x.shape[0]):
+                    if location_x[i,tt-starttime] >=  x_branch1[seg_id-1]:
+                        icount += 1
+                percentage[seg_id-1] = float(icount) / Np
+                
+        #pdb.set_trace()
+        return percentage
+    
+    
+    def Percentage_branch5(self, Np, Nt, starttime, location_x, x_combined, Ttimes_avg):
+        """
+        At branch 5
+        calculate the particle percentage for each transect at the corresponding travel time
+        """
+        
+        Ttime_avg1 = Ttimes_avg[0]
+        Ttime_avg5 = Ttimes_avg[1]
+        
+        #### read segment information for branch 5
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=5)
+            
+        x_branch5 = WB.X   #### segment x coordinates for branch 5
+            
+        #### read segment information for branch 1
+        WB = W2_Bathymetry(self.Bthfile)
+        pat = WB.VisBranch2(branchID=1)
+        
+        x_branch1 = WB.X
+        
+        percentage5 = np.zeros_like(x_branch5)
+        percentage1 = np.zeros_like(x_branch1)
+        
+        percentage_combined = np.zeros_like(x_combined)
+        
+        Ttime_avg_combined = Ttime_avg5.tolist() + Ttime_avg1.tolist()[self.DHS5-1:]
+        
+        for ii, tt in enumerate(Ttime_avg_combined):
+            tt = int(tt)
+            if tt != 0:
+                tt += starttime
+                seg_id = ii + 2
+                #print ('Calculate particle percentage for time step = %s, segment = %d\n'%(str(tt), seg_id))
+                
+                icount = 0
+                for i in range(location_x.shape[0]):
+                    if location_x[i,tt-starttime] >=  x_combined[seg_id-1]:
+                        icount += 1
+                percentage_combined[seg_id-1] = float(icount) / Np
+                
+        percentage5[1:-1] = percentage_combined[1:len(x_branch5)-1]
+        percentage1[self.DHS5:] = percentage_combined[len(x_branch5)-1:]
+        
+        
+        #pdb.set_trace()
+        return [percentage1, percentage5]
+    
+    
     
     def Concentrate_branch1(self, Nt, starttime, Ttime):
         """
@@ -798,20 +890,40 @@ class Particle_Tracking_Module(W2_Contour):
         
         xx = np.arange(particle_location.shape[0]) + 1
         
-        WB = W2_Bathymetry(self.Bthfile)
-        pat = WB.VisBranch2(branchID)
+        if branchID == 1:
+            WB = W2_Bathymetry(self.Bthfile)
+            pat = WB.VisBranch2(branchID)
+            
+            x_branch = WB.X
+            
+        elif branchID == 5:
+            
+            WB = W2_Bathymetry(self.Bthfile)
+            pat = WB.VisBranch2(branchID)
+            
+            x_branch5 = WB.X   #### segment x coordinates for branch 5
+            
+            #### read segment information for branch 1
+            WB = W2_Bathymetry(self.Bthfile)
+            pat = WB.VisBranch2(branchID=1)
+            
+            x_branch1 = WB.X
+            
+            #### combine the two branch cells
+            x_branch = x_branch5.tolist()[0:] + \
+                        (x_branch1[self.DHS5-1:] - x_branch1[self.DHS5-1] + x_branch5[-2]).tolist()
+            x_branch = np.asarray(x_branch)
+        
+        
         
         plt.rcParams.update({'font.size': 18})
         fig = plt.figure(figsize=(8,12.5))
         ax = fig.add_subplot(111)
-    
-        
-        
             
         def animate(ii):
             ax.clear()
             ### grid segments
-            for yc in WB.X:
+            for yc in x_branch:
                 ax.axhline(y=yc, color='gray', linestyle='-', linewidth=1)
             
             #### particle positions
@@ -888,9 +1000,9 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(100, 350, 17, starttime=725, branchID=1, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## low
-    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
-    PTM = Particle_Tracking_Module(wdir)
-    PTM.particle_tracking_model_1D(100, 350, 18, starttime=1085, branchID=1, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
+    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
+    #PTM = Particle_Tracking_Module(wdir)
+    #PTM.particle_tracking_model_1D(100, 350, 18, starttime=1085, branchID=1, flow_condition='low', transportSurface=True, transportBottom=True, travelTime=True)
     
     
     #### branch 5
@@ -900,9 +1012,9 @@ if __name__ == "__main__":
     #PTM.particle_tracking_model_1D(100, 350, 21, starttime=385, branchID=5, flow_condition='high', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## medium
-    #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
-    #PTM = Particle_Tracking_Module(wdir)
-    #PTM.particle_tracking_model_1D(100, 350, 21, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
+    wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1604_tracer_test_branch1'
+    PTM = Particle_Tracking_Module(wdir)
+    PTM.particle_tracking_model_1D(100, 350, 21, starttime=725, branchID=5, flow_condition='medium', transportSurface=True, transportBottom=True, travelTime=True)
     
     ## low
     #wdir = r'M:\Projects\0326\099-09\2-0 Wrk Prod\Dongyu_work\spill_modeling\tracer_test\20200214_1611_tracer_test_branch1'
